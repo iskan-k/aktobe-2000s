@@ -40,14 +40,16 @@ export const GROUND_Y = -0.04;  // bare earth sits just below the asphalt
  * north-south at x = c. `a`..`b` is its extent along its own axis.
  * `lanes` is per direction. `walk` is the pavement width on each side
  * (first = the -c side, i.e. north or west), `trees` the width of the
- * tree strip inside that pavement next to the kerb (0 = none).
+ * tree strip inside that pavement next to the kerb (0 = none). `median`
+ * is the width of a raised central strip (the avenue has one, planted,
+ * with the street lights down the middle, as on the real one).
  */
 export const ROADS = [
   {
     id: 'ave', name: 'пр. Абулхаир хана', nameKz: 'Әбілқайыр хан даңғылы',
     axis: 'x', c: 0, a: -PORTAL_REACH, b: PORTAL_REACH,
-    lanes: 2, laneW: 3.5, walk: [7, 7], trees: [2.4, 2.4],
-    centre: 'double', major: true, speed: 16,
+    lanes: 2, laneW: 3.5, walk: [6.4, 6.4], trees: [2.4, 2.4],
+    centre: 'median', median: 2.2, major: true, speed: 16,
   },
   {
     id: 'vokzal', name: 'ул. Вокзальная', nameKz: 'Вокзал көшесі',
@@ -98,8 +100,8 @@ export const SIGNALS = [
 
 export const roadById = Object.fromEntries(ROADS.map((r) => [r.id, r]));
 
-/** Half width of the carriageway. */
-export const halfWidth = (r) => r.lanes * r.laneW;
+/** Half width of the carriageway, median included. */
+export const halfWidth = (r) => (r.median || 0) / 2 + r.lanes * r.laneW;
 
 /** Distance from the road centreline to the outer edge of the pavement on side 0 / 1. */
 export const outerEdge = (r, side) => halfWidth(r) + r.walk[side];

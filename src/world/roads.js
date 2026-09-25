@@ -156,7 +156,8 @@ export function buildRoads(ctx) {
         // lamp posts: at the kerb on the avenue, on the far side elsewhere
         const lampOff = sgn * (hw + KERB_W + 0.5);
         const lampStep = r.major ? 32 : 38;
-        const lampsHere = r.major || side === 1;
+        // the avenue is lit from its median; side streets from one side
+        const lampsHere = !r.median && side === 1;
         if (lampsHere && s1 - s0 > 10) {
           for (let a = s0 + 6; a < s1 - 4; a += lampStep) {
             const [px, pz] = toWorld(r, a, lampOff);
@@ -180,6 +181,9 @@ export function buildRoads(ctx) {
       cornerPiece(ctx, j.x + sx * j.hx, j.z + sz * j.hz, sx, sz, Wx, Wz);
     }
   }
+
+  /* ---------------- medians ---------------- */
+  for (const r of ROADS) if (r.median) median(ctx, r, lampSpots, treeSpots);
 
   /* ---------------- markings ---------------- */
   for (const r of ROADS) markings(ctx, r);
@@ -365,9 +369,10 @@ function markings(ctx, r) {
       for (let a = s0 + 1; a < s1 - 3; a += 9) paintAlong(ctx, r, a, a + 3, -0.06, 0.06, WHITE);
     }
     // lane dividers on multi-lane roads
+    const m2 = (r.median || 0) / 2;
     for (let lane = 1; lane < r.lanes; lane++) {
       for (const sgn of [-1, 1]) {
-        const c = sgn * lane * r.laneW;
+        const c = sgn * (m2 + lane * r.laneW);
         for (let a = s0 + 2; a < s1 - 3; a += 12) paintAlong(ctx, r, a, a + 3, c - 0.06, c + 0.06, WHITE);
       }
     }
@@ -377,6 +382,34 @@ function markings(ctx, r) {
         paintAlong(ctx, r, a0, a1, -hw + 0.25, -hw + 0.37, WHITE);
         paintAlong(ctx, r, a0, a1, hw - 0.37, hw - 0.25, WHITE);
       }
+    }
+  }
+}
+
+/**
+ * Raised central median: kerbs both sides, a grassy top with a few low
+ * bushes, and the avenue's double-armed street lights every 32 m. It
+ * stops short of each junction so the zebra and the turning traffic have
+ * the full width.
+ */
+function median(ctx, r, lampSpots, treeSpots) {
+  const { batch, ground } = ctx;
+  const m2 = r.median / 2;
+  for (const [s0, s1] of openSpans(r)) {
+    if (s1 - s0 < 6) continue;
+    const a0 = s0 + 0.6, a1 = s1 - 0.6;
+    const [x0, z0, x1, z1] = rectOf(r, a0, a1, -m2, m2);
+    for (const q of splitRect(x0, z0, x1, z1, 40)) {
+      batch.span(q[0], ASPHALT_Y - 0.02, q[1], q[2], KERB_H + 0.02, q[3], PAL.kerb, { cast: false });
+      batch.add(hQuad(q[0] + 0.12 * (r.axis === 'z' ? 1 : 0), q[1] + 0.12 * (r.axis === 'x' ? 1 : 0),
+        q[2] - 0.12 * (r.axis === 'z' ? 1 : 0), q[3] - 0.12 * (r.axis === 'x' ? 1 : 0), KERB_H + 0.025, TILE.grass),
+      { mat: SURF.grass, color: null, cast: false });
+    }
+    ground.flat(x0, z0, x1, z1, KERB_H, 'median');
+    for (let a = a0 + 8; a < a1 - 4; a += 32) {
+      const [px, pz] = toWorld(r, a, 0);
+      if (!inBounds(px, pz, 4)) continue;
+      lampSpots.push({ x: px, z: pz, road: r.id, side: -1, double: true, facing: r.axis === 'x' ? 0 : -Math.PI / 2 });
     }
   }
 }
@@ -404,8 +437,9 @@ function crossings(ctx, j) {
     // on a north-south road the northbound lanes are east (across > 0).
     const s0 = at + dirSign * (depth + 1.4), s1 = s0 + dirSign * 0.4;
     const approachSide = r.axis === 'x' ? -dirSign : dirSign;
-    const c0 = approachSide > 0 ? 0.2 : -hw;
-    const c1 = approachSide > 0 ? hw : -0.2;
+    const inner = (r.median || 0) / 2 + 0.2;
+    const c0 = approachSide > 0 ? inner : -hw;
+    const c1 = approachSide > 0 ? hw : -inner;
     paintAlong(ctx, r, Math.min(s0, s1), Math.max(s0, s1), c0, c1, WHITE);
   };
   const busy = j.rx.major || j.signal;

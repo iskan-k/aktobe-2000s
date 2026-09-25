@@ -31,7 +31,7 @@ export function buildStreetscape(ctx, streets) {
   }
   for (const l of streets.lampSpots) {
     if (nearShelter(l.x, l.z, 4)) continue;
-    addLamp(batch, l.x, l.z, l.facing, { y: KERB_H });
+    addLamp(batch, l.x, l.z, l.facing, { y: KERB_H, double: !!l.double, height: l.double ? 10.5 : 9.5 });
     colliders.circle(l.x, l.z, 0.2, { tag: 'lamp' });
   }
 }
