@@ -92,6 +92,19 @@ export const RAIL = {
   platform: { x0: -120, x1: 20, z0: -162.9, z1: -158.2, y: 1.1 },
 };
 
+/**
+ * Pavement stretches kept clear of street trees, poles, kiosks and
+ * shelters: gates and forecourts that need to be seen and walked into.
+ */
+export const KEEP_CLEAR = [
+  { id: 'bazaar-gate', x0: 45, x1: 67, z0: -15, z1: -7.6 },
+];
+
+/** Is (x, z) inside a keep-clear zone (grown by margin)? */
+export function inKeepClear(x, z, margin = 0) {
+  return KEEP_CLEAR.some((k) => x > k.x0 - margin && x < k.x1 + margin && z > k.z0 - margin && z < k.z1 + margin);
+}
+
 /** Traffic-light controlled junctions (by road id pair). */
 export const SIGNALS = [
   ['ave', 'mid'],

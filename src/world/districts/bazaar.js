@@ -5,7 +5,7 @@ import { cel } from '../../core/toon.js';
 import { SURF, TILE, hQuad } from '../../core/surfaces.js';
 import { canvasTex, cached, signTex, flagTex, FONT } from '../../core/textures.js';
 import { rngKit } from '../../core/util.js';
-import { BLOCKS } from '../plan.js';
+import { BLOCKS, KEEP_CLEAR } from '../plan.js';
 import { KIT, TILES, tbox, tboxGeo, mtx, frame, quadGeo, scaleUV } from '../buildings/houseKit.js';
 import { stall, container, umbrella, cart, crateStack, sack, tandyr, crate } from '../props/market.js';
 import { addTree } from '../props/trees.js';
@@ -56,8 +56,15 @@ export const bazaar = {
   },
 };
 
-/** The x in 50..60 whose arch is furthest from any street tree on the pavement outside. */
+/** The gate stands in the middle of its keep-clear zone in plan.js. */
 function pickGateX(ctx) {
+  const k = KEEP_CLEAR.find((z) => z.id === 'bazaar-gate');
+  if (k) return (k.x0 + k.x1) / 2;
+  return pickGateXFromTrees(ctx);
+}
+
+/** Fallback: the x in 50..60 whose arch is furthest from any street tree. */
+function pickGateXFromTrees(ctx) {
   const trees = (ctx.streets?.treeSpots || []).filter((t) => t.z > B.z1 && t.z < B.z1 + 7 && t.x > 40 && t.x < 70);
   if (!trees.length) return 56;
   let best = 56, bestD = -1;

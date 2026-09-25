@@ -1,5 +1,5 @@
 import { PAL } from '../core/palette.js';
-import { JUNCTIONS, KERB_H, TROLLEY, halfWidth, roadById, BOUNDS } from './plan.js';
+import { JUNCTIONS, KERB_H, TROLLEY, halfWidth, roadById, BOUNDS, inKeepClear } from './plan.js';
 
 /* ------------------------------------------------------------------ *
  * The trolleybus overhead line on the avenue.
@@ -41,8 +41,13 @@ export function buildOverhead(ctx) {
   // along-positions of the supports, clear of junction boxes
   const supports = [];
   for (let a = -TROLLEY.reach; a <= TROLLEY.reach; a += TROLLEY.spacing) {
-    const inJunction = junctions.some((j) => Math.abs(a - j.x) < j.hx + 7);
-    if (!inJunction) supports.push(a);
+    let at = a;
+    // slide a support out of a gate forecourt rather than lose it
+    for (const side of [-1, 1]) {
+      while (inKeepClear(at, r.c + side * poleAcross, 0.5)) at += 2;
+    }
+    const inJunction = junctions.some((j) => Math.abs(at - j.x) < j.hx + 7);
+    if (!inJunction) supports.push(at);
   }
 
   const poles = [];
