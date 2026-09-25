@@ -57,6 +57,22 @@ const DOOR_NOTES = [
 
 const _one = new THREE.Vector3(1, 1, 1);
 const _up = new THREE.Vector3(0, 1, 0);
+const _sm = new THREE.Matrix4();
+
+/**
+ * A window sill seen only from outside: its top and its front edge, four
+ * triangles instead of a box's ten. Unit size, base at y = 0, the wall at
+ * z = 0 and the front at z = +1.
+ */
+const SILL_GEO = (() => {
+  const g = new THREE.BufferGeometry();
+  const p = [-0.5, 1, 0, 0.5, 1, 0, 0.5, 1, 1, -0.5, 1, 1, -0.5, 0, 1, 0.5, 0, 1, 0.5, 1, 1, -0.5, 1, 1];
+  const n = [0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 0, 1, 0, 0, 1, 0, 0, 1, 0, 0, 1];
+  g.setAttribute('position', new THREE.Float32BufferAttribute(p, 3));
+  g.setAttribute('normal', new THREE.Float32BufferAttribute(n, 3));
+  g.setIndex([0, 3, 2, 0, 2, 1, 4, 5, 6, 4, 6, 7]);
+  return g;
+})();
 
 /**
  * Collects textured quads per material and adds each set to the batch
@@ -263,7 +279,11 @@ export function buildBlock(ctx, spec) {
   const flatWindow = (lx, cy, zf, face, side, w, k) => {
     if (k > 0 && rng.chance(0.035)) quads.quad(litMat, [lx, cy, zf], face, w, WIN_H, cellUV(pickCell(rng, WIN.lit)));
     else quads.quad(atlas, [lx, cy, zf], face, w, WIN_H, cellUV(winCell(k)));
-    box(w + 0.12, 0.035, 0.14, PAL.metalGrey, lx, cy - WIN_H / 2 - 0.035, side * (D / 2 + 0.07), { cast: false });
+    _sm.compose(
+      new THREE.Vector3(lx, cy - WIN_H / 2 - 0.035, side * D / 2),
+      new THREE.Quaternion().setFromAxisAngle(_up, side < 0 ? Math.PI : 0),
+      new THREE.Vector3(w + 0.12, 0.035, 0.14));
+    batch.add(SILL_GEO, { color: PAL.metalGrey, matrix: _sm.premultiply(matrix), cast: false });
   };
   const hasBack = (bi) => (back === 'balconies' || back === 'strips') && (bi === 1 || bi === bays - 2);
   const hasFrontStrip = (bi) => front === 'strips' && (bi === stairBay - 1 || bi === stairBay + 1);
@@ -328,7 +348,7 @@ export function buildBlock(ctx, spec) {
     if (parapet === 'bars' && pc === null) {
       box(alongX ? len + 0.06 : 0.06, 0.05, alongX ? 0.06 : len + 0.06, PAL.metalDark, cx, yb + 0.95, cz);
       box(alongX ? len : 0.04, 0.04, alongX ? 0.04 : len, PAL.metalDark, cx, yb + 0.12, cz);
-      const n = Math.max(2, Math.round(len / 0.16));
+      const n = Math.max(2, Math.round(len / 0.19));
       for (let i = 1; i < n; i++) {
         const t = i / n;
         box(0.022, 0.83, 0.022, PAL.metalDark, ax + (bx - ax) * t, yb + 0.12, az + (bz - az) * t, { cast: false });
@@ -345,7 +365,7 @@ export function buildBlock(ctx, spec) {
   };
 
   /** Frames and glass filling an opening from (ax, az) to (bx, bz), y0 up gh. */
-  const glazeRun = (ax, az, bx, bz, y0, gh, fc, cell, face) => {
+  const glazeRun = (ax, az, bx, bz, y0, gh, fc, cell, face, sharedEnd = false) => {
     const len = Math.hypot(bx - ax, bz - az);
     const alongX = Math.abs(bx - ax) > Math.abs(bz - az);
     const cx = (ax + bx) / 2, cz = (az + bz) / 2;
@@ -354,7 +374,8 @@ export function buildBlock(ctx, spec) {
     const fb = (lenA, h, px, py, pz) => box(alongX ? lenA : 0.07, h, alongX ? 0.07 : lenA, fc, px, py, pz, { cast: false });
     fb(len, 0.07, cx, y0, cz);
     fb(len, 0.07, cx, y0 + gh - 0.07, cz);
-    for (let i = 0; i <= n; i++) {
+    // a side run shares its corner post with the front run
+    for (let i = 0; i <= (sharedEnd ? n - 1 : n); i++) {
       const t = i / n;
       box(0.06, gh, 0.06, fc, ax + (bx - ax) * t, y0, az + (bz - az) * t, { cast: false });
     }
@@ -385,8 +406,12 @@ export function buildBlock(ctx, spec) {
       parapetRun(x0, zw, x0, zf, yb, pc, false, side);
       parapetRun(x1, zw, x1, zf, yb, pc, false, side);
     } else {
-      // loggias are boxes, not open slabs: fins on both sides, full height
-      for (const sx of [-1, 1]) box(0.12, STOREY - 0.14, deep, band ? PAL.panelLight : PAL.concrete, lx + sx * (w / 2 + 0.02), yb, zc);
+      // loggias are boxes, not open slabs: one fin each side from the
+      // bottom of the strip to the roof slab, drawn once with the first storey
+      if (k === 0) {
+        const finH = storeys * STOREY - 0.14;
+        for (const sx of [-1, 1]) box(0.12, finH, deep, band ? PAL.panelLight : PAL.concrete, lx + sx * (w / 2 + 0.02), yb, zc);
+      }
       if (top) box(w + 0.36, 0.16, deep + 0.1, PAL.concrete, lx, yb + STOREY - 0.14, zc + side * 0.05);
     }
     // glazing: mismatched, the whole point of a 2000s facade
@@ -406,8 +431,8 @@ export function buildBlock(ctx, spec) {
       const cell = rng.int(0, BGLASS_N - 1);
       glazeRun(x0, zf, x1, zf, gy, gh, fc, cell, faceOf(side));
       if (style === 'balcony') {
-        glazeRun(x0, zw, x0, zf, gy, gh, fc, (cell + 3) % BGLASS_N, '-x');
-        glazeRun(x1, zw, x1, zf, gy, gh, fc, (cell + 5) % BGLASS_N, '+x');
+        glazeRun(x0, zw, x0, zf, gy, gh, fc, (cell + 3) % BGLASS_N, '-x', true);
+        glazeRun(x1, zw, x1, zf, gy, gh, fc, (cell + 5) % BGLASS_N, '+x', true);
       }
     }
     // a glazed top balcony needs a roof of its own, sloping off the wall
