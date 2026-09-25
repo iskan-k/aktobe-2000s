@@ -45,7 +45,7 @@ export function createParked(game) {
   for (const s of spots) {
     if (s.chance !== undefined && !rng.chance(s.chance)) continue;
     const type = s.kind || rng.pick(PARKED_TYPES);
-    const model = buildVehicle(type, { seed: 500 + n, color: s.color ?? randomCarColor(rng), parked: true });
+    const model = buildVehicle(type, { seed: 500 + n, color: s.color ?? randomCarColor(rng, type), parked: true });
     model.group.position.set(0, 0, 0);
     model.group.rotation.set(0, 0, 0);
     // doors shut, lights off
