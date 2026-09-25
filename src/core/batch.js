@@ -46,13 +46,31 @@ function makeUnitBox(withBottom) {
 export const UNIT_BOX = makeUnitBox(false);
 export const UNIT_BOX_CLOSED = makeUnitBox(true);
 
+/**
+ * The same surface seen from both sides: a copy with reversed winding and
+ * flipped normals merged in. Open shells (a bin, a lamp hood) need it,
+ * since every batch material culls back faces.
+ */
+export function withInside(g) {
+  const inner = g.clone();
+  const idx = inner.index.array;
+  for (let i = 0; i < idx.length; i += 3) { const t = idx[i + 1]; idx[i + 1] = idx[i + 2]; idx[i + 2] = t; }
+  const n = inner.attributes.normal.array;
+  for (let i = 0; i < n.length; i++) n[i] = -n[i];
+  return mergeGeometries([g, inner]);
+}
+
 const cylCache = new Map();
-/** Unit cylinder (radius 1, height 1, base at y = 0), cached per segment count. */
-export function unitCylinder(seg = 8, openEnded = false) {
-  const key = seg + (openEnded ? 'o' : 'c');
+/**
+ * Unit cylinder (radius 1, height 1, base at y = 0), cached per segment
+ * count. `inside` adds the inner wall of an open one.
+ */
+export function unitCylinder(seg = 8, openEnded = false, inside = false) {
+  const key = seg + (openEnded ? 'o' : 'c') + (inside ? 'i' : '');
   if (!cylCache.has(key)) {
-    const g = new THREE.CylinderGeometry(1, 1, 1, seg, 1, openEnded);
+    let g = new THREE.CylinderGeometry(1, 1, 1, seg, 1, openEnded);
     g.translate(0, 0.5, 0);
+    if (inside) g = withInside(g);
     cylCache.set(key, g);
   }
   return cylCache.get(key);
@@ -178,7 +196,7 @@ export class Batch {
     return this.box(w, h, d, color, (x0 + x1) / 2, Math.min(y0, y1), (z0 + z1) / 2, o);
   }
 
-  /** Base-anchored cylinder. */
+  /** Base-anchored cylinder. An `open` one shows its inner wall too. */
   cyl(r, h, color, x = 0, y = 0, z = 0, o = {}) {
     const { rx = 0, ry = 0, rz = 0, seg = 8, rTop = null, open = false } = o;
     _p.set(x, y, z);
@@ -187,12 +205,13 @@ export class Batch {
     _s.set(r, h, r);
     _m.compose(_p, _q, _s);
     if (rTop !== null && rTop !== r) {
-      const g = new THREE.CylinderGeometry(rTop, r, h, seg, 1, open);
+      let g = new THREE.CylinderGeometry(rTop, r, h, seg, 1, open);
       g.translate(0, h / 2, 0);
+      if (open) g = withInside(g);
       _m.compose(_p, _q, _s.set(1, 1, 1));
       return this.add(g, { ...o, color, matrix: _m });
     }
-    return this.add(unitCylinder(seg, open), { ...o, color, matrix: _m });
+    return this.add(unitCylinder(seg, open, open), { ...o, color, matrix: _m });
   }
 
   /**
