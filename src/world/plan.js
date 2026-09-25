@@ -184,7 +184,7 @@ export const BLOCKS = {
  * Where the walker starts: the avenue's north pavement at the bazaar bus
  * stop, looking east along the traffic with the evening sun behind you.
  */
-export const SPAWN = { x: 29, z: -11.8, yaw: -1.85, pitch: -0.03 };
+export const SPAWN = { x: 32, z: -10.8, yaw: -1.8, pitch: -0.03 };
 
 /**
  * Is (x, z) on a carriageway (including junction boxes and corner

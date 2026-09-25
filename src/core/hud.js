@@ -62,7 +62,7 @@ export function createHud({ volume = 0.5 } = {}) {
         <h1 id="card-title">Aktobe <span>2000s</span></h1>
         <p class="lede start-only">
           A warm June evening. Poplar fluff drifting over the avenue, marshrutkas
-          stopping wherever you wave, a kiosk selling ice cream for sixty tenge.
+          stopping wherever you wave, a kiosk selling ice cream for fifty tenge.
           Walk the microdistrict, ride the number 44, or take the old семёрка
           for a spin.
         </p>
@@ -75,7 +75,7 @@ export function createHud({ volume = 0.5 } = {}) {
           <span><b>Mouse</b> look</span>
           <span><b>E</b> use · board · get in</span>
           <span><b>V</b> call your car</span>
-          <span><b>Space</b> brake / horn in car</span>
+          <span><b>Space</b> horn in the car</span>
           <span><b>F</b> car camera</span>
           <span><b>M</b> sound</span>
           <span><b>T</b> map</span>

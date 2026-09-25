@@ -18,16 +18,17 @@ import {
  * trains take the far track. Trains come in at one portal and leave by
  * the other.
  *
- * It also works the level crossing (lights 25 s ahead of a train, arms
- * down, road traffic held at the stop lines, the bell), the colour-light
- * signals, and the sounds: the diesel drone, the two-tone horn, wheels
- * over rail joints, the station chime.
+ * It also works the level crossing (lights 25 s ahead of a train, 12 s
+ * ahead of one leaving the platform, arms down, road traffic held at the
+ * stop lines, the bell), the colour-light signals, and the sounds: the
+ * diesel drone, the two-tone horn, wheels over rail joints, the station
+ * chime.
  *
  * API (game.rail): update(dt), trains, upcoming(n), spawn(kind, dir, o),
  * crossing (its phase).
  * ------------------------------------------------------------------ */
 
-const HEADWAY = [60, 120];
+const HEADWAY = [150, 260];      // s between trains: each one shuts the crossing for about a minute
 const FIRST = 12;
 const CRUISE = { passenger: 15, freight: 16.5 };
 const DECEL = 0.45;
@@ -224,7 +225,8 @@ export function createRail(game) {
       const dHead = (CROSSING.x - tr.head) * tr.dir;
       const dTail = (CROSSING.x - tailOf(tr)) * tr.dir;
       if (dHead <= CROSS_MARGIN && dTail > -CROSS_MARGIN) return true;
-      if (dHead > CROSS_MARGIN && eta(tr, dHead - CROSS_MARGIN) < CROSSING.warn) return true;
+      const warn = tr.state === 'dwell' ? CROSSING.warnDepart : CROSSING.warn;
+      if (dHead > CROSS_MARGIN && eta(tr, dHead - CROSS_MARGIN) < warn) return true;
     }
     return false;
   }

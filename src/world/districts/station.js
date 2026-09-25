@@ -130,13 +130,15 @@ function taxiSignTex() {
 function taxiRank(ctx) {
   const b = ctx.batch;
   const x0 = B.x0 + 4, x1 = PASSAGES[0].x0 - 3;
-  // a taxi model if the catalogue has one by the time the town is built
-  const kind = Object.keys(TYPES).find((k) => /taxi/i.test(k));
+  // liveried taxis, and now and then a private cab in a семёрка
+  const rank = ['volgaTaxi', 'passatTaxi', 'lada2107', 'volgaTaxi', 'passatTaxi', 'passatTaxi', 'lada2107'].filter((k) => TYPES[k]);
   const rows = [{ z: -146, ry: 0 }, { z: -128, ry: Math.PI }];
+  let slot = 0;
   for (const { z, ry } of rows) {
     for (let x = x0 + 1.4; x < x1 - 1.4; x += 3.6) {
       b.box(0.1, 0.01, 5.2, 0xeeebe0, x - 1.8, Y + 0.005, z, { cast: false });
-      ctx.parking.push({ x, z, ry, kind, chance: 0.75 });
+      ctx.parking.push({ x, z, ry, kind: rank[slot % rank.length], chance: 0.75 });
+      slot++;
     }
   }
   const mat = cached('station|taxi-sign-mat', () => flat({ map: taxiSignTex() }));

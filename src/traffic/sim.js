@@ -29,6 +29,8 @@ import { rngKit, clamp, damp, wrapAngle } from '../core/util.js';
  * ------------------------------------------------------------------ */
 
 const LOOKAHEAD = 75;
+const AMBER_CLEAR = 2.5;       // m from the line: still close enough to go on amber
+const AXLE_REACH = 0.34;       // axle distance from the centre, as a share of length
 const TRAFFIC_COUNT = 46;
 const ENGINE_VOICES = 6;
 
@@ -192,7 +194,8 @@ export function createTraffic(game) {
     if (j.signal) {
       const light = signals.stateFor(j, c.inArm);
       if (light === 'R') return false;
-      if (light === 'Y' && distToLine > (v.v * v.v) / (2 * 3.2) + 1) return false;
+      // a left-turner already waiting at the line clears on amber, as they do
+      if (light === 'Y' && distToLine > Math.max((v.v * v.v) / (2 * 3.2) + 1, AMBER_CLEAR)) return false;
     }
     // exit lane must have room for me
     const out = c.to;
@@ -577,11 +580,17 @@ export function createTraffic(game) {
   function updateModel(v, dt, ds) {
     const m = v.model;
     const g = m.group;
-    g.position.set(v.x, 0, v.z);
+    // ride over raised ground (the level-crossing deck) on both axles;
+    // surfaces overhead, like the footbridge, are ignored
+    const reach = v.len * AXLE_REACH;
+    const fx = -Math.sin(v.heading) * reach, fz = -Math.cos(v.heading) * reach;
+    const yFront = game.world.heightAt(v.x + fx, v.z + fz, 0);
+    const yRear = game.world.heightAt(v.x - fx, v.z - fz, 0);
+    g.position.set(v.x, (yFront + yRear) / 2, v.z);
     // cartoon weight: nose dips when braking, squats when pulling away
     v.pitch = damp(v.pitch, clamp(-v.acc * 0.011, -0.05, 0.035), 6, dt);
     v.roll = damp(v.roll, clamp(-v.yawRate * v.v * 0.004, -0.05, 0.05), 5, dt);
-    g.rotation.set(v.pitch, v.heading, v.roll, 'YXZ');
+    g.rotation.set(v.pitch + Math.atan2(yFront - yRear, 2 * reach), v.heading, v.roll, 'YXZ');
     v.wheelAngle += ds / m.wheelRadius;
     for (const w of m.wheels) w.rotation.x = -v.wheelAngle;
     let steer = 0;

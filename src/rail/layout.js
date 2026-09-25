@@ -45,6 +45,7 @@ export const CROSSING = {
   deckY: 0.15,                      // level with the pavements
   ramp: 1.6,                        // carriageway hump either side of the deck
   warn: 25,                         // seconds of lights before a train arrives
+  warnDepart: 12,                   // ... or before one standing at the platform leaves
   lower: 6,                         // lights flash this long before the arms fall
 };
 
