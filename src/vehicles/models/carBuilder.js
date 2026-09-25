@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import {
-  Parts, greenhouse, bottomLine, lineAt, wheelRig, lamps, seatedFigure, GLASS, tone,
+  Parts, greenhouse, bottomLine, lineAt, wheelRig, lamps, seatedFigure, GLASS, tone, lensUV,
 } from '../kit.js';
+import { withInside } from '../../core/batch.js';
 import { addPlates, randomPlate } from '../plates.js';
 
 /* ------------------------------------------------------------------ *
@@ -29,16 +30,63 @@ export const DARKRED = 0x7e1d18;
 export const SEAT = 0x3a3431;
 export const DASH = 0x2a2a2c;
 
-/** Mirrored pair of rectangular lamps on a face at z, facing `face` (-1 front / +1 rear). */
+/** Which lens texture a lamp colour gets, if any. */
+const LENS_OF = new Map([[0xb52a22, 'red'], [0x7e1d18, 'smoke'], [0xe0962e, 'amber'], [0xf2ecd8, 'head'], [0xe8e2d2, 'white']]);
+
+/**
+ * Mirrored pair of rectangular lamps on a face at z, facing `face` (-1
+ * front / +1 rear). Lamp colours get a painted lens on their outer face;
+ * `o.lens` names one ('red', 'amber', 'white', 'head', ...) or false.
+ */
 export function rectLamp(P, x, y, z, w, h, color, face, depth = 0.04, o = {}) {
-  for (const s of [1, -1]) P.box(w, h, depth, color, s * x, y, z + face * (depth / 2 - 0.012), o);
+  const lens = o.lens === undefined ? LENS_OF.get(color) : o.lens;
+  for (const s of [1, -1]) {
+    P.box(w, h, depth, color, s * x, y, z + face * (depth / 2 - 0.012), o);
+    if (lens) {
+      P.decal(w * 0.96, h * 0.92, lensUV(lens), s * x, y, z + face * (depth - 0.012 + 0.002),
+        { ry: face < 0 ? Math.PI : 0, rz: (o.rz ?? 0) * (face < 0 ? -1 : 1) * s });
+    }
+  }
 }
 
-/** Mirrored pair of round lamps (headlights), with a bezel ring. */
-export function roundLamp(P, x, y, z, r, face = -1, { bezel = CHROME, glass = LAMP, depth = 0.05 } = {}) {
+/** Mirrored pair of round lamps (headlights), with a bezel ring and a ribbed lens. */
+export function roundLamp(P, x, y, z, r, face = -1, { bezel = CHROME, glass = LAMP, depth = 0.05, lens = null } = {}) {
+  const kind = lens ?? (glass === LAMP ? 'round' : LENS_OF.get(glass));
   for (const s of [1, -1]) {
-    P.cyl(r + 0.018, depth * 0.6, bezel, s * x, y, z + face * depth * 0.2, { axis: 'z', seg: 14 });
-    P.cyl(r, depth, glass, s * x, y, z + face * depth * 0.45, { axis: 'z', seg: 14 });
+    P.cyl(r + 0.018, depth * 0.6, bezel, s * x, y, z + face * depth * 0.2, { axis: 'z', seg: 16 });
+    P.cyl(r, depth, glass, s * x, y, z + face * depth * 0.45, { axis: 'z', seg: 16 });
+    if (kind) P.disc(r * 0.97, lensUV(kind), s * x, y, z + face * (depth * 0.95 + 0.002), { ry: face < 0 ? Math.PI : 0 });
+  }
+}
+
+const LINER = 0x141414;
+
+/**
+ * Dark wheelhouses: a half-tube just inside each arch and an inner wall,
+ * so the arches read deep and nobody sees daylight through a car.
+ */
+export function archLiners(P, wheels, ra, hw, depth = 0.3) {
+  const tube = withInside(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true, 0, Math.PI).rotateZ(Math.PI / 2));
+  const wall = withInside(new THREE.CircleGeometry(1, 12, 0, Math.PI).rotateY(Math.PI / 2));
+  const m = new THREE.Matrix4();
+  for (const w of wheels) {
+    for (const s of [1, -1]) {
+      m.compose(new THREE.Vector3(s * (hw - depth / 2 - 0.012), w.r, w.z), new THREE.Quaternion(), new THREE.Vector3(depth, ra - 0.006, ra - 0.006));
+      P.add(tube, LINER, m);
+      m.compose(new THREE.Vector3(s * (hw - depth - 0.01), w.r, w.z), new THREE.Quaternion(), new THREE.Vector3(1, ra, ra));
+      P.add(wall, LINER, m);
+    }
+  }
+}
+
+/** A thin shut line laid along a top polyline between z0 and z1 at +-x. */
+export function topSeam(P, top, z0, z1, xs, color = 0x3a3632) {
+  const pts = [[z0, lineAt(top, z0)], ...top.filter(([z]) => z > z0 + 0.01 && z < z1 - 0.01), [z1, lineAt(top, z1)]];
+  for (let i = 0; i < pts.length - 1; i++) {
+    const [za, ya] = pts[i], [zb, yb] = pts[i + 1];
+    const len = Math.hypot(zb - za, yb - ya);
+    if (len < 0.01) continue;
+    for (const x of xs) P.box(0.006, 0.004, len, color, x, (ya + yb) / 2 + 0.002, (za + zb) / 2, { rx: -Math.atan2(yb - ya, zb - za) });
   }
 }
 
@@ -50,20 +98,39 @@ export function bumper(P, z, y, h, halfW, face, { color = CHROME, depth = 0.1, s
   if (strip) P.box(halfW * 2 - 0.1, h * 0.35, depth * 0.3, strip, 0, y, z + face * depth * 0.75);
 }
 
+/*
+ * While a car's details are built, the side of its body is known as a
+ * function x(z, y), so seams and handles can lie on the rounded shoulder
+ * instead of standing off it. Other builders leave it null.
+ */
+let surface = null;
+
+/** Half width of the body side at (z, y), or `hw` outside buildCar. */
+export function sideX(hw, z, y) {
+  return surface ? surface(z, y) : hw;
+}
+
 /** Door seam lines and handles on both sides. */
 export function doorLines(P, hw, seams, ySill, yBelt, handles = [], color = 0x2a2a2a) {
+  const N = 4;
   for (const s of [1, -1]) {
-    for (const z of seams) P.box(0.008, yBelt - ySill - 0.04, 0.012, color, s * (hw + 0.002), (yBelt + ySill) / 2, z);
-    for (const [z, y] of handles) P.box(0.02, 0.03, 0.12, CHROME, s * (hw + 0.008), y, z);
+    for (const z of seams) {
+      for (let i = 0; i < N; i++) {
+        const ya = ySill + ((yBelt - 0.04 - ySill) * i) / N, yb = ySill + ((yBelt - 0.04 - ySill) * (i + 1)) / N;
+        P.tube([s * (sideX(hw, z, ya) + 0.002), ya, z], [s * (sideX(hw, z, yb) + 0.002), yb, z], 0.004, color, { seg: 3 });
+      }
+    }
+    for (const [z, y] of handles) P.box(0.02, 0.03, 0.12, CHROME, s * (sideX(hw, z, y) + 0.008), y, z);
   }
 }
 
 /** Door mirror on a stalk near the A-pillar base. */
 export function mirrors(P, hw, z, y, color = BLACK, both = true) {
+  const x = sideX(hw, z, y);
   for (const s of both ? [1, -1] : [-1]) {
-    P.box(0.05, 0.03, 0.05, color, s * (hw + 0.04), y, z);
-    P.box(0.06, 0.1, 0.13, color, s * (hw + 0.1), y + 0.05, z + 0.02);
-    P.box(0.005, 0.08, 0.1, 0x9fb1bd, s * (hw + 0.1), y + 0.05, z + 0.087);
+    P.box(0.08, 0.03, 0.05, color, s * (x + 0.03), y, z);
+    P.box(0.06, 0.1, 0.13, color, s * (x + 0.1), y + 0.05, z + 0.02);
+    P.box(0.005, 0.08, 0.1, 0x9fb1bd, s * (x + 0.1), y + 0.05, z + 0.087);
   }
 }
 
@@ -94,12 +161,38 @@ export function buildCar(s, o = {}) {
   };
   const lower = s.lowerColor ?? color;
 
+  // The body in section: widest at a shoulder crease a hand below the
+  // top line, rounding in above it and tucking under toward the sills.
+  const drop = s.shoulderDrop ?? 0.1;
+  const crown = s.crown ?? 0.045;
+  const tuck = s.tuck ?? 0.022;
+  const shoulder = top.map(([z, y]) => [z, Math.max(lineAt(bottom, z) + 0.03, y - drop)]);
+  const upper = (z, y) => {
+    const t = lineAt(top, z), sh = lineAt(shoulder, z);
+    return 1 - crown * Math.max(0, Math.min(1, (y - sh) / Math.max(t - sh, 1e-3)));
+  };
+  const under = (z, y) => {
+    const b = lineAt(bottom, z), sh = lineAt(shoulder, z);
+    return 1 - tuck * Math.max(0, Math.min(1, (sh - y) / Math.max(sh - b, 1e-3)));
+  };
+  const body = (z0, z1, x0, x1, plan) => {
+    P.slab(top, shoulder, z0, z1, x0, x1, lower, { taper: (z, y) => (plan ? taper(z) : 1) * upper(z, y) });
+    P.slab(shoulder, bottom, z0, z1, x0, x1, lower, { taper: (z, y) => (plan ? taper(z) : 1) * under(z, y) });
+  };
+
   // front, rear, and the hollow door section
-  P.slab(top, bottom, zF, cab0, -hw, hw, lower, { taper });
-  P.slab(top, bottom, cab1, zR, -hw, hw, lower, { taper });
+  body(zF, cab0, -hw, hw, true);
+  body(cab1, zR, -hw, hw, true);
   const skin = 0.055;
-  P.slab(top, bottom, cab0, cab1, hw - skin, hw, lower);
-  P.slab(top, bottom, cab0, cab1, -hw, -hw + skin, lower);
+  body(cab0, cab1, hw - skin, hw, false);
+  body(cab0, cab1, -hw, -hw + skin, false);
+  archLiners(P, [{ z: wf, r }, { z: wr, r }], r + (s.archGap ?? 0.05), hw * (1 - tuck * 0.5));
+  // bonnet and boot shut lines
+  const topW = hw * (1 - crown);
+  if (s.seams !== false) {
+    topSeam(P, top, zF + 0.1, cab0 - 0.07, [topW - 0.07, -topW + 0.07]);
+    if (cab1 < zR - 0.35) topSeam(P, top, cab1 + 0.07, zR - 0.06, [topW - 0.08, -topW + 0.08]);
+  }
   const belt = lineAt(top, (cab0 + cab1) / 2);
   const floorY = sill + 0.02;
   P.span(-hw + skin, sill - 0.02, cab0, hw - skin, floorY + 0.04, cab1, 0x262626);
@@ -107,7 +200,10 @@ export function buildCar(s, o = {}) {
   for (const sg of [1, -1]) P.span(sg * (hw - skin), floorY + 0.1, cab0 + 0.05, sg * (hw - skin - 0.03), belt - 0.02, cab1 - 0.05, s.trim ?? 0x4a4440);
 
   // greenhouse
-  const gh = greenhouse(P, { ...s.gh, glass: s.glass ?? GLASS.clear }, s.gh.color ?? color);
+  // the greenhouse stands on the rounded-in shoulder, not proud of it
+  const hwBelt = Math.min(s.gh.hwBelt, topW - 0.004);
+  const ghSpec = { ...s.gh, hwBelt, hwRoof: s.gh.hwRoof - (s.gh.hwBelt - hwBelt) * 0.6, glass: s.glass ?? GLASS.clear };
+  const gh = greenhouse(P, ghSpec, s.gh.color ?? color);
 
   // interior: dashboard, seats, wheel, parcel shelf. In the player's car
   // these simple ones go with the driver figure, hidden from the seat view
@@ -147,8 +243,10 @@ export function buildCar(s, o = {}) {
   addPlates(P, plate, s.plateFront ? { y: s.plateFront.y, z: s.plateFront.z ?? zF } : null,
     s.plateRear ? { y: s.plateRear.y, z: s.plateRear.z ?? zR } : null, { tiltRear: s.plateRear?.tilt ?? 0 });
 
+  surface = (z, y) => hw * (y > lineAt(shoulder, z) ? upper(z, y) : under(z, y)) * (z < cab0 || z > cab1 ? taper(z) : 1);
   if (s.details) s.details(P, { color, hw, zF, zR, wf, wr, r, sill, top, bottom, belt, gh, seed, o, lineAt: (z) => lineAt(top, z) });
 
+  surface = null;
   const meshes = P.flush(group);
   if (meshes.body) meshes.body.castShadow = true;
 

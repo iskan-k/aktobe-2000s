@@ -19,6 +19,11 @@ const angles = opt('angles', 'front,rear').split(',');
 const gap = Number(opt('gap', 6));
 const open = Number(opt('open', 0));
 const player = args.includes('--player');
+// open ground beyond the south edge of the town, clear of every district
+const [SX, SZ] = opt('at', '-20,240').split(',').map(Number);
+// a route to paint on boards: --route '44|12 мкр – Школа – Рынок'
+const [rLabel, rVia] = (opt('route', '44|12 мкр – Школа – Рынок')).split('|');
+const route = { label: rLabel, via: rVia || '' };
 
 async function up(url) { try { return (await fetch(url)).ok; } catch { return false; } }
 let server = null;
@@ -35,22 +40,22 @@ page.on('pageerror', (e) => errors.push(`[pageerror] ${e.stack || e.message}`));
 await page.goto(`http://127.0.0.1:${port}/?dev`, { waitUntil: 'load' });
 await page.waitForFunction(() => window.__city?.ready, null, { timeout: 120000 });
 
-const info = await page.evaluate(async ({ types, gap, open, player }) => {
+const info = await page.evaluate(async ({ types, gap, open, player, SX, SZ, route }) => {
   const cat = await import('/src/vehicles/catalog.js');
   const c = window.__city;
   // clear traffic out of the way
   for (const v of c.game.traffic?.vehicles || []) v.model.group.visible = false;
   c.game.traffic.update = () => {};
   const out = [];
-  const X0 = 30, Z0 = -40;
+  const X0 = SX, Z0 = SZ;
   window.__showModels = [];
   types.forEach((t, i) => {
-    const m = cat.buildVehicle(t, { seed: 3 + i * 11, player, ...(player ? { color: 0x7d1d27, plate: 'D 107 KZ' } : {}) });
+    const m = cat.buildVehicle(t, { seed: 3 + i * 11, player, route, ...(player ? { color: 0x7d1d27, plate: 'D 107 KZ' } : {}) });
     m.group.position.set(X0 + i * gap, 0, Z0);
     m.group.rotation.y = 0;
     c.game.scene.add(m.group);
     window.__showModels.push(m);
-    if (m.routeBoard) m.routeBoard('44');
+    if (m.routeBoard) m.routeBoard(route.label);
     for (const d of m.doors) d.set(open);
     let tris = 0, calls = 0;
     m.group.traverse((o) => { if (o.isMesh && o.visible) { calls++; const g = o.geometry; tris += (g.index ? g.index.count : g.attributes.position.count) / 3; } });
@@ -63,20 +68,20 @@ const info = await page.evaluate(async ({ types, gap, open, player }) => {
   });
   window.__show = { X0, Z0, n: types.length };
   return out;
-}, { types, gap, open, player });
+}, { types, gap, open, player, SX, SZ, route });
 console.log(JSON.stringify(info));
 
 const n = types.length;
-const cx = 30 + ((n - 1) * gap) / 2;
+const cx = SX + ((n - 1) * gap) / 2;
 const span = Math.max(8, n * gap);
 const views = {
   // camera looks at the front (-z) three-quarter from the front-right
-  front: { x: cx + span * 0.35, y: 2.6, z: -40 - span * 0.55, look: [cx, 0.8, -40] },
-  rear: { x: cx - span * 0.35, y: 2.6, z: -40 + span * 0.55, look: [cx, 0.8, -40] },
-  side: { x: cx, y: 1.5, z: -40 + span * 0.62 + 2, look: [cx, 0.9, -40] },
-  top: { x: cx, y: span * 0.9, z: -40 + 0.1, look: [cx, 0, -40] },
-  close: { x: 30 + 3.2, y: 1.5, z: -40 - 4.2, look: [30, 0.8, -40] },
-  closer: { x: 30 - 3.4, y: 1.4, z: -40 + 4.4, look: [30, 0.8, -40] },
+  front: { x: cx + span * 0.35, y: 2.6, z: SZ - span * 0.55, look: [cx, 0.8, SZ] },
+  rear: { x: cx - span * 0.35, y: 2.6, z: SZ + span * 0.55, look: [cx, 0.8, SZ] },
+  side: { x: cx, y: 1.5, z: SZ + span * 0.62 + 2, look: [cx, 0.9, SZ] },
+  top: { x: cx, y: span * 0.9, z: SZ + 0.1, look: [cx, 0, SZ] },
+  close: { x: SX + 3.2, y: 1.5, z: SZ - 4.2, look: [SX, 0.8, SZ] },
+  closer: { x: SX - 3.4, y: 1.4, z: SZ + 4.4, look: [SX, 0.8, SZ] },
 };
 const shots = [];
 for (const a of angles) {
@@ -121,14 +126,14 @@ for (const a of angles) {
     }
     continue;
   }
-  if (a === 'each' || a === 'eachRear') {
+  if (a === 'each' || a === 'eachRear' || a === 'near' || a === 'nearRear') {
     for (let i = 0; i < n; i++) {
-      const X = 30 + i * gap;
-      const k = Math.max(1, info[i].L / 4.3);
+      const X = SX + i * gap;
+      const k = Math.max(1, info[i].L / 4.3) * (a.startsWith('near') ? 0.5 : 1);
       const hy = Math.max(1.55, info[i].H * 0.6);
-      const v = a === 'each'
-        ? { x: X + 3.4 * k, y: hy, z: -40 - 4.6 * k, look: [X, info[i].H * 0.45, -40] }
-        : { x: X - 3.4 * k, y: hy, z: -40 + 4.6 * k, look: [X, info[i].H * 0.45, -40] };
+      const v = a === 'each' || a === 'near'
+        ? { x: X + 3.4 * k, y: hy, z: SZ - 4.6 * k, look: [X, info[i].H * 0.45, SZ] }
+        : { x: X - 3.4 * k, y: hy, z: SZ + 4.6 * k, look: [X, info[i].H * 0.45, SZ] };
       await page.evaluate((v) => {
         const c = window.__city;
         const THREE = c.THREE;

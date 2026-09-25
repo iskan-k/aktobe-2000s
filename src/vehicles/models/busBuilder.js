@@ -3,7 +3,7 @@ import {
   Parts, bottomLine, wheelRig, lamps, seatedFigure, signMesh, signCards, fitText, GLASS, tone,
 } from '../kit.js';
 import { addPlates, randomPlate } from '../plates.js';
-import { CHROME, BLACK, LAMP, AMBER, RED } from './carBuilder.js';
+import { CHROME, BLACK, LAMP, AMBER, RED, archLiners } from './carBuilder.js';
 
 /* ------------------------------------------------------------------ *
  * Box-bodied buses and trolleybuses, built to be ridden in.
@@ -91,8 +91,9 @@ export function buildBus(s, o = {}) {
         P.box(0.012, 0.03, zb - za, pillarColor, sgn * (hw + 0.002), winTop - (winTop - belt) * 0.3, (za + zb) / 2);
       }
     }
-    // rubber under the windows
+    // rubber under and over the windows
     P.box(t + 0.012, 0.035, winZ1 - winZ0, 0x2a2a2a, xo, belt + 0.01, (winZ0 + winZ1) / 2);
+    P.box(t + 0.012, 0.03, winZ1 - winZ0, 0x2a2a2a, xo, winTop - 0.01, (winZ0 + winZ1) / 2);
   }
   // right side: glass above and inside each door leaf is part of the leaf
 
@@ -120,6 +121,10 @@ export function buildBus(s, o = {}) {
   P.quad([-half, wsB, wz0], [-0.03, wsB, wz0], [-0.03, wsT, wz1], [-half, wsT, wz1], glass, { glass: true });
   P.quad([0.03, wsB, wz0], [half, wsB, wz0], [half, wsT, wz1], [0.03, wsT, wz1], glass, { glass: true });
   P.box(0.06, wsT - wsB, 0.06, pillarColor, 0, (wsB + wsT) / 2, (wz0 + wz1) / 2, { rx: -Math.atan2(rake, wsT - wsB) });
+  // rubber round the screen
+  P.tube([-half, wsB, wz0 - 0.005], [half, wsB, wz0 - 0.005], 0.02, 0x1c1c1c, { seg: 4 });
+  P.tube([-half, wsT, wz1 - 0.005], [half, wsT, wz1 - 0.005], 0.02, 0x1c1c1c, { seg: 4 });
+  for (const x of [-half, half]) P.tube([x, wsB, wz0 - 0.005], [x, wsT, wz1 - 0.005], 0.02, 0x1c1c1c, { seg: 4 });
   for (const sgn of [1, -1]) P.box(0.1, wsT - wsB, 0.1, frontC, sgn * (hw - 0.05), (wsB + wsT) / 2, zF + 0.05 + rake / 2);
   // destination board housing
   P.span(-hw, wsT, zF + rake * 0.9, hw, roofY + 0.02, zF + rake + 0.08, s.boardHousing ?? 0x1f1f20);
@@ -149,6 +154,7 @@ export function buildBus(s, o = {}) {
 
   /* ---------------- floor and wheel housings ---------------- */
   P.span(-hw + t, skirt, zF + t, hw - t, floorY, zR - t, FLOOR);
+  archLiners(P, wheelsZ.map((z) => ({ z, r })), r + 0.07, hw - t, 0.44);
   for (const z of wheelsZ) {
     for (const sgn of [1, -1]) {
       P.span(sgn * (hw - t), floorY, z - r - 0.1, sgn * (hw - t - 0.42), r * 2 + 0.2, z + r + 0.1, WALL_IN);
@@ -265,6 +271,7 @@ export function buildBus(s, o = {}) {
   let poleTips = null;
   if (s.trolley) {
     poleTips = trolleyPoles(group, { roofY: roofY + 0.1, baseZ: s.trolley.baseZ, wireY: s.trolley.wireY ?? 5.8, len: s.trolley.len ?? 6.0, zR });
+    rearLadder(group, { hw, zR, skirt, roofY });
   }
 
   const seats = [...seatEyes.filter((_, i) => i % 2 === 0).slice(0, 6), ...standEyes];
@@ -330,28 +337,78 @@ function doorRig(group, d, { hw, floorY, skirt, top, body, glass, frame }) {
   };
 }
 
+/**
+ * The two current-collector poles, raised to the contact wires. Each
+ * stands on a sprung base on the roof frame and ends in a trolley head:
+ * a swivel, a fork and the carbon shoe that slides along the wire.
+ */
 function trolleyPoles(group, { roofY, baseZ, wireY, len, zR }) {
   const P = new Parts();
   P.span(-0.55, roofY, baseZ - 0.5, 0.55, roofY + 0.18, baseZ + 0.5, 0x5a5a58);
   const tips = [];
   const rise = wireY - (roofY + 0.3);
   const run = Math.sqrt(Math.max(0.1, len * len - rise * rise));
+  const at = (k) => [roofY + 0.3 + (wireY - 0.1 - roofY - 0.3) * k, baseZ + run * k];
   for (const x of [-0.3, 0.3]) {
     const a = [x, roofY + 0.3, baseZ];
-    const b = [x, wireY - 0.04, baseZ + run];
+    const b = [x, wireY - 0.1, baseZ + run];
+    // base: a pivot block and the two tension springs behind it
     P.box(0.16, 0.14, 0.4, 0x3a3a3a, x, roofY + 0.24, baseZ);
-    P.tube(a, b, 0.03, 0x2b2b2b, { seg: 6 });
-    // the shoe that runs on the wire
-    P.box(0.07, 0.07, 0.22, 0x555555, x, wireY - 0.035, baseZ + run);
+    for (const dx of [-0.05, 0.05]) P.tube([x + dx, roofY + 0.22, baseZ - 0.35], [x + dx, roofY + 0.3, baseZ + 0.05], 0.018, 0x6a6a66, { seg: 5 });
+    // the pole, thicker at the root, with an insulating sleeve near the base
+    const [ym, zm] = at(0.3);
+    P.tube(a, [x, ym, zm], 0.036, 0x2b2b2b, { seg: 6 });
+    P.tube([x, ym, zm], b, 0.026, 0x2b2b2b, { seg: 6 });
+    const [ys0, zs0] = at(0.02), [ys1, zs1] = at(0.1);
+    P.tube([x, ys0, zs0], [x, ys1, zs1], 0.046, 0x7a4a2a, { seg: 6 });
+    // trolley head: swivel, fork, and the shoe riding the wire
+    P.box(0.05, 0.06, 0.06, 0x444444, x, wireY - 0.1, baseZ + run);
+    for (const dx of [-0.035, 0.035]) P.box(0.012, 0.07, 0.05, 0x555555, x + dx, wireY - 0.055, baseZ + run);
+    P.box(0.05, 0.035, 0.26, 0x3b3b3b, x, wireY - 0.018, baseZ + run);
+    P.box(0.03, 0.012, 0.22, 0x1a1a1a, x, wireY - 0.002, baseZ + run);
     // retriever rope hanging back to the rear panel
     P.tube(b, [x * 0.8, roofY - 0.4, zR + 0.02], 0.006, 0x222222, { seg: 3 });
     tips.push({ x, y: wireY, z: baseZ + run });
+  }
+  // hooks at the back of the roof that hold the poles when they are down
+  for (const x of [-0.3, 0.3]) {
+    P.box(0.04, 0.2, 0.04, 0x3a3a3a, x, roofY + 0.1, zR - 0.6);
+    P.box(0.12, 0.03, 0.04, 0x3a3a3a, x, roofY + 0.2, zR - 0.6);
   }
   P.flush(group);
   return tips;
 }
 
+/** The steel ladder up the back of a trolleybus, for the crew to reach the poles. */
+function rearLadder(group, { hw, zR, skirt, roofY }) {
+  const P = new Parts();
+  const x = hw - 0.34, z = zR + 0.07;
+  const y0 = skirt + 0.4, y1 = roofY + 0.12;
+  for (const dx of [-0.17, 0.17]) {
+    P.box(0.03, y1 - y0, 0.03, 0x3a3a3a, x + dx, (y0 + y1) / 2, z);
+    for (const y of [y0 + 0.1, (y0 + y1) / 2, y1 - 0.1]) P.box(0.03, 0.03, 0.08, 0x3a3a3a, x + dx, y, z - 0.04);
+  }
+  for (let y = y0 + 0.2; y < y1; y += 0.3) P.box(0.34, 0.025, 0.025, 0x4a4a4a, x, y, z);
+  P.flush(group);
+}
+
 /* ---------------- boards ---------------- */
+
+/*
+ * Stop names in Kazakh, for the second line of the boards. Signs of the
+ * time carried both languages; the stop names are the ones the routes in
+ * plan.js use.
+ */
+const KAZ = [
+  [/Студенческая/g, 'Студенттік'], [/Парк им\. Пушкина/g, 'Пушкин саябағы'], [/Вокзал/g, 'Вокзал'],
+  [/Акимат/g, 'Әкімдік'], [/Рынок/g, 'Базар'], [/(\d+) мкр/g, '$1 шағынаудан'], [/Школа/g, 'Мектеп'],
+  [/Разъезд/g, 'Разъезд'], [/Маресьева/g, 'Маресьев к-сі'],
+];
+
+/** The Kazakh line for a route's stops. */
+export function kazVia(via) {
+  return KAZ.reduce((t, [re, kz]) => t.replace(re, kz), via);
+}
 
 function paintFrontBoard(style) {
   return (ctx, w, h, label = '', via = '', boardStyle = style) => {
@@ -359,29 +416,38 @@ function paintFrontBoard(style) {
       ctx.fillStyle = '#141414';
       ctx.fillRect(0, 0, w, h);
       fitText(ctx, label, h * 0.6, h / 2 + 1, h, h * 0.8, '#ffb020', { family: 'Menlo, Consolas, monospace' });
-      fitText(ctx, via.replace(/ – /g, ' – '), w * 0.58, h / 2 + 1, w * 0.8, h * 0.5, '#ffb020', { family: 'Menlo, Consolas, monospace', weight: 'normal' });
+      fitText(ctx, kazVia(via), w * 0.58, h * 0.32, w * 0.8, h * 0.36, '#ffb020', { family: 'Menlo, Consolas, monospace', weight: 'normal' });
+      fitText(ctx, via, w * 0.58, h * 0.7, w * 0.8, h * 0.36, '#ffb020', { family: 'Menlo, Consolas, monospace', weight: 'normal' });
       return;
     }
-    // roller blind: white card with black letters, a big red number
+    // roller blind: white card with black letters, a big red number, the
+    // stops in Kazakh over the same stops in Russian
     ctx.fillStyle = '#1b1b1b';
     ctx.fillRect(0, 0, w, h);
     ctx.fillStyle = '#efeadb';
     ctx.fillRect(4, 4, w - 8, h - 8);
     fitText(ctx, label, h * 0.62, h / 2 + 1, h * 1.1, h * 0.85, '#b8261f');
-    fitText(ctx, via, w * 0.58, h / 2 + 1, w * 0.76, h * 0.52, '#1b1b1b');
+    ctx.fillStyle = '#1b1b1b';
+    ctx.fillRect(h * 1.25, 6, 3, h - 12);
+    fitText(ctx, kazVia(via), w * 0.6, h * 0.32, w * 0.74, h * 0.36, '#1b1b1b');
+    fitText(ctx, via, w * 0.6, h * 0.7, w * 0.74, h * 0.36, '#1b1b1b', { weight: 'normal' });
   };
 }
 
-/** The white card in the window by the door: number big, stops under it. */
+/** The white card in the window by the door: number big, stops in both languages under it. */
 export function paintCard(ctx, w, h, label = '', via = '') {
   ctx.fillStyle = '#f4f1e6';
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = '#2a2a2a';
   ctx.lineWidth = 4;
   ctx.strokeRect(3, 3, w - 6, h - 6);
-  fitText(ctx, label, w / 2, h * 0.36, w * 0.8, h * 0.52, '#b8261f');
-  const parts = via.split(' – ');
-  parts.forEach((p, i) => fitText(ctx, p, w / 2, h * 0.68 + i * h * 0.1, w * 0.9, h * 0.1, '#1b1b1b', { weight: 'normal' }));
+  fitText(ctx, label, w / 2, h * 0.3, w * 0.8, h * 0.44, '#b8261f');
+  const ru = via.split(' – '), kz = kazVia(via).split(' – ');
+  ru.forEach((p, i) => {
+    const y = h * 0.6 + i * h * 0.12;
+    fitText(ctx, kz[i] ?? '', w * 0.27, y, w * 0.46, h * 0.1, '#1b1b1b');
+    fitText(ctx, p, w * 0.73, y, w * 0.46, h * 0.1, '#1b1b1b', { weight: 'normal' });
+  });
 }
 
 /** Tiny local PRNG (same algorithm as util's mulberry32). */

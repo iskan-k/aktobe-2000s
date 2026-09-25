@@ -31,6 +31,28 @@ function chassis(P, c, y, { hw = 0.45, lamps = true } = {}) {
   }
 }
 
+/**
+ * The things hung off a truck's frame rails: a fuel tank on the driver's
+ * side, a battery box on the other, an exhaust (a pipe under the frame or
+ * a stack behind the cab) and the spare wheel.
+ */
+function frameKit(P, c, { y, z, hw = 0.5, stack = false, spare = null }) {
+  const tankC = 0x3a3b3c;
+  P.cyl(0.22, 0.9, tankC, -(hw + 0.24), y - 0.12, z + 0.45, { axis: 'z', seg: 12 });
+  for (const dz of [0.12, 0.78]) P.box(0.5, 0.03, 0.04, 0x1c1c1c, -(hw + 0.24), y - 0.12, z + dz, {});
+  P.cyl(0.05, 0.05, 0x6a6a66, -(hw + 0.24), y + 0.1, z + 0.3, { seg: 8 });
+  P.span(hw, y - 0.34, z + 0.1, hw + 0.4, y - 0.02, z + 0.62, 0x2a2a2a);
+  P.span(hw + 0.38, y - 0.32, z + 0.12, hw + 0.4, y - 0.04, z + 0.6, 0x4a4a48);
+  if (stack) {
+    const x = hw + 0.18;
+    P.cyl(0.07, 1.6, 0x4a4a48, x, y + 0.9, c.zEnd - 0.12, { seg: 8 });
+    P.cyl(0.1, 0.5, 0x8a8a86, x, y + 0.7, c.zEnd - 0.12, { seg: 8 });
+  } else {
+    P.tube([hw + 0.05, y - 0.3, z + 0.7], [hw + 0.2, y - 0.4, z + 1.9], 0.045, 0x3a3a3a, { seg: 6 });
+  }
+  if (spare) P.cyl(c.s.r * 0.95, c.s.tyreW ?? 0.25, 0x1c1c1c, spare.x ?? 0, spare.y, spare.z, { axis: spare.axis ?? 'z', seg: 14 });
+}
+
 /** Black mudguards over the rear wheels. */
 function mudguards(P, c, hw) {
   for (const z of c.s.zRear) {
@@ -182,6 +204,7 @@ const gaz3307 = {
   load(P, c) {
     chassis(P, c, 1.2, { hw: 0.5 });
     mudguards(P, c, 1.19);
+    frameKit(P, c, { y: 1.2, z: -0.45, spare: { y: 0.85, z: 2.8, axis: 'y' } });
     platform(P, c, { z0: -0.42, z1: c.zR - 0.02, y: 1.32, hw: 1.19, h: 0.5, color: pick([0x5d6b4a, 0x6a6a64, 0x7a5a3a], c.seed) });
     // a few sacks on board (potatoes from the dacha, or cement)
     for (let i = 0; i < 4; i++) P.blob(0.32, 0.18, 0.24, pick([0xcfc5a8, 0xb9ad8a, 0xd9d2c0], c.seed, i), -0.6 + (i % 2) * 0.55, 1.5, 1.2 + Math.floor(i / 2) * 0.55);
@@ -215,6 +238,7 @@ const zil130 = {
   load(P, c) {
     chassis(P, c, 1.2, { hw: 0.5 });
     mudguards(P, c, 1.2);
+    frameKit(P, c, { y: 1.2, z: -0.5 });
     const z0 = -0.4, z1 = c.zR - 0.3, cy = 2.0, r = 0.78;
     P.span(-0.7, 1.2, z0, 0.7, 1.3, z1, FRAME);
     P.cyl(r, z1 - z0, 0xe7e2d0, 0, cy, (z0 + z1) / 2, { axis: 'z', seg: 16 });
@@ -252,7 +276,12 @@ const kamaz5511 = {
     for (const y of [1.42, 1.5, 1.58, 1.66]) P.box(1.46, 0.035, 0.02, tone(c.body, 0.8), 0, y, z - 0.02);
     sideText(P, 'kamaz', 'КАМАЗ', 0, 1.84, z - 0.02, 0.6, 0.12, '#e9e6dc', { bg: '#2a2b2c', ry: Math.PI });
     P.span(-c.W / 2, 0.55, z - 0.1, c.W / 2, 0.92, z + 0.05, 0x3a3b3c);
-    rectLamp(P, 0.8, 0.78, z - 0.1, 0.22, 0.14, LAMP, -1, 0.04);
+    // twin round headlamps set in the bumper, fog lamps beside the plate
+    roundLamp(P, 0.95, 0.76, z - 0.1, 0.09, -1, { bezel: 0x1c1c1c });
+    roundLamp(P, 0.72, 0.76, z - 0.1, 0.075, -1, { bezel: 0x1c1c1c });
+    // the sun visor over the screen, and the tow hooks
+    P.box(c.W - 0.2, 0.04, 0.34, tone(c.body, 0.9), 0, c.winTop + 0.1, z + 0.08, { rx: -0.18 });
+    for (const sgn of [1, -1]) P.box(0.06, 0.1, 0.12, 0xb8322a, sgn * 0.55, 0.6, z - 0.14);
     // steps under the doors and the black arch below the cab
     for (const sgn of [1, -1]) {
       P.span(sgn * (c.hw - 0.02), 0.62, -2.9, sgn * (c.hw - 0.3), 0.66, -2.55, BLACK);
@@ -272,6 +301,16 @@ const kamaz5511 = {
     // the canopy over the back of the cab, and a load of gravel
     P.span(-hw, 2.9, c.zEnd - 0.4, hw, 2.95, z0 + 0.06, tone(col, 0.9));
     P.blob(hw - 0.1, 0.35, (z1 - z0) / 2 - 0.2, 0x9a9184, 0, top - 0.12, (z0 + z1) / 2, { detail: 1 });
+    // the tipping ram between the cab and the body, and the rails on top
+    P.cyl(0.11, 0.9, 0x2a2a2a, 0, 1.3, z0 - 0.08, { seg: 10 });
+    P.cyl(0.07, 0.5, 0x9a9a96, 0, 2.1, z0 - 0.08, { seg: 10 });
+    for (const sgn of [1, -1]) P.span(sgn * (hw + 0.05), top - 0.06, z0, sgn * (hw - 0.02), top, z1, tone(col, 0.75));
+    // the tailgate hangs from hinges at its top edge
+    for (const sgn of [1, -1]) {
+      P.cyl(0.05, 0.12, 0x2a2a2a, sgn * (hw - 0.1), top - 0.04, z1 + 0.02, { axis: 'x', seg: 8 });
+      P.box(0.05, 0.16, 0.08, 0x2a2a2a, sgn * (hw - 0.25), y + 0.12, z1 + 0.04);
+    }
+    frameKit(P, c, { y: 1.22, z: c.zEnd + 0.05, stack: true });
   },
 };
 

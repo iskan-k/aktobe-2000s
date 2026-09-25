@@ -35,17 +35,30 @@ function tailBand(P, zR, x, y, w, h, { red = RED, amber = AMBER, frame = BLACK }
   rectLamp(P, x, y - h * 0.3, zR + 0.012, w, h * 0.35, amber, 1, 0.03);
 }
 
-/** Roof taxi sign: a small yellow box reading "ТАКСИ" / "TAXI". */
+/**
+ * Roof taxi sign: the yellow lamp box with a row of black and white
+ * checks over the word ТАКСИ, on a sheet-metal foot clamped to the gutters.
+ */
 function taxiSign(P, y, z) {
-  const uv = ATLAS.slot('taxi-sign', 160, 48, (ctx, x0, y0, w, h) => {
+  const uv = ATLAS.slot('taxi-sign', 192, 64, (ctx, x0, y0, w, h) => {
     ctx.fillStyle = '#f2c230';
     ctx.fillRect(x0, y0, w, h);
-    fitText(ctx, 'TAXI · ТАКСИ', x0 + w / 2, y0 + h / 2 + 1, w - 12, 32, '#1a1a1a');
+    const s = h * 0.22;
+    for (let i = 0; i < w / s; i++) {
+      ctx.fillStyle = i % 2 ? '#141414' : '#f4f1e6';
+      ctx.fillRect(x0 + i * s, y0 + 3, s, s);
+    }
+    fitText(ctx, 'ТАКСИ', x0 + w / 2, y0 + h * 0.64, w - 20, 36, '#141414', { family: 'Arial, sans-serif' });
+    ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+    ctx.lineWidth = 3;
+    ctx.strokeRect(x0 + 1.5, y0 + 1.5, w - 3, h - 3);
   });
-  P.box(0.08, 0.05, 0.16, BLACK, 0, y + 0.025, z);
-  P.box(0.5, 0.15, 0.16, 0xf2c230, 0, y + 0.12, z);
-  P.decal(0.46, 0.12, uv, 0, y + 0.12, z - 0.082, { ry: Math.PI });
-  P.decal(0.46, 0.12, uv, 0, y + 0.12, z + 0.082);
+  P.box(0.3, 0.03, 0.2, BLACK, 0, y + 0.015, z);
+  P.box(0.08, 0.04, 0.12, BLACK, 0, y + 0.05, z);
+  P.box(0.56, 0.17, 0.17, 0xf2c230, 0, y + 0.15, z);
+  P.box(0.58, 0.02, 0.19, 0xe8e2c8, 0, y + 0.235, z);
+  P.decal(0.54, 0.16, uv, 0, y + 0.15, z - 0.087, { ry: Math.PI });
+  P.decal(0.54, 0.16, uv, 0, y + 0.15, z + 0.087);
 }
 
 /** Black and yellow checker strip along both sides. */
@@ -147,7 +160,7 @@ export const mercW124 = {
     aBase: [-1.05, 0.9], aTop: [-0.36, 1.42], roofRear: [0.9, 1.43], cBase: [1.42, 0.95],
     hwBelt: 0.85, hwRoof: 0.68, pillars: [0.26], pW: [0.07, 0.05, 0.2, 0.09],
   },
-  hipFront: 0.02, hipRear: 1.0, wheelStyle: 'alloy', rim: 0xbfc1c2,
+  hipFront: 0.02, hipRear: 1.0, wheelStyle: 'deckel', rim: 0xc9cacb,
   plateFront: { y: 0.4 }, plateRear: { y: 0.6 },
   lamps: {
     brake: [{ x: 0.56, y: 0.76, w: 0.28, h: 0.07 }],
@@ -412,7 +425,7 @@ export const volga24 = {
     aBase: [-1.02, 0.9], aTop: [-0.42, 1.44], roofRear: [0.86, 1.45], cBase: [1.46, 0.95],
     hwBelt: 0.87, hwRoof: 0.72, pillars: [0.2], pW: [0.075, 0.05, 0.24, 0.09],
   },
-  hipFront: -0.02, hipRear: 0.95,
+  hipFront: -0.02, hipRear: 0.95, wheelStyle: 'volga', rim: 0xd6d7d4, hub: 0xecece8,
   plateFront: { y: 0.42 }, plateRear: { y: 0.62 },
   lamps: {
     brake: [{ x: 0.66, y: 0.66, w: 0.2, h: 0.08 }],

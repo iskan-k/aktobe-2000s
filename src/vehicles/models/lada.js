@@ -27,7 +27,7 @@ const CLASSIC = {
     aBase: [-0.98, 0.875], aTop: [-0.41, 1.415], roofRear: [0.78, 1.42], cBase: [1.3, 0.9],
     hwBelt: 0.79, hwRoof: 0.655, pillars: [0.13], pW: [0.075, 0.05, 0.22, 0.09],
   },
-  hipFront: -0.02, hipRear: 0.82,
+  hipFront: -0.02, hipRear: 0.82, wheelStyle: 'lada', rim: 0xc9c9c4, hub: 0xe6e6e2,
 };
 
 function classicCommon(P, c, { roundLights }) {

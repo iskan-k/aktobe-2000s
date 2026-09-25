@@ -1,10 +1,10 @@
 import * as THREE from 'three';
 import {
-  Parts, bottomLine, lineAt, wheelRig, lamps, seatedFigure, signCards, GLASS, tone,
+  Parts, bottomLine, lineAt, wheelRig, lamps, seatedFigure, signCards, fitText, GLASS, tone,
 } from '../kit.js';
 import { addPlates, randomPlate } from '../plates.js';
-import { CHROME, BLACK, DASH } from './carBuilder.js';
-import { paintCard } from './busBuilder.js';
+import { CHROME, BLACK, DASH, archLiners } from './carBuilder.js';
+import { paintCard, kazVia } from './busBuilder.js';
 
 /* ------------------------------------------------------------------ *
  * Forward-control and short-nose vans: the GAZelle marshrutka, the
@@ -112,6 +112,7 @@ function shell(P, s, c) {
     for (const [z0, z1] of cut) skin(P, c, sgn, z0, z1, s.stripes ?? []);
   }
   windowBand(P, s, c);
+  archLiners(P, [s.zFront, ...s.zRear].filter((z) => z < zEnd).map((z) => ({ z, r: s.r })), s.r + 0.06, hw - T, s.cabEnd ? 0.36 : 0.3);
   // upper band, roof with rounded edges, brow over the windscreen
   const upper = s.upperColor ?? body;
   const roofC = s.roofColor ?? body;
@@ -191,6 +192,7 @@ function windowBand(P, s, c) {
     const last = pillars[pillars.length - 1] + pw / 2;
     if (zEnd - last > 0.02) P.span(sgn * (hw - T), belt, last, sgn * hw, winTop, zEnd - 0.01, s.upperColor ?? body);
     P.box(T + 0.012, 0.03, zEnd - c.zWs0 - 0.2, 0x2a2a2a, xo, belt + 0.012, (c.zWs0 + 0.2 + zEnd) / 2);
+    if (glazed) P.box(T + 0.012, 0.026, zEnd - c.zWs0 - 0.3, 0x2a2a2a, xo, winTop - 0.008, (c.zWs0 + 0.3 + zEnd) / 2);
   }
 }
 
@@ -381,10 +383,48 @@ function routeCards(group, s, c, o) {
     { x: hw * 0.5, y: (s.rearWindow?.[0] ?? winTop - 0.5) + 0.22, z: zR - 0.06 },
   ]);
   group.add(cards.mesh);
+  // and the driver's own: a strip of cardboard lettered in marker, propped
+  // on the dash across the middle of the screen
+  const yh = belt + 0.09;
+  const zh = zWs0 + ((yh - belt) / (winTop - belt)) * (zWs1 - zWs0) + 0.07;
+  const hand = signCards(0.78, 0.17, 384, paintHandCard, [
+    { x: -0.1, y: yh, z: zh, ry: Math.PI, rx: -rake * 0.8 },
+    { x: -hw + 0.05, y: belt + 0.14, z: after + 0.5, ry: -Math.PI / 2 },
+  ]);
+  group.add(hand.mesh);
   const via = o.route?.via ?? '';
-  const paint = (label) => cards.paint(label, via);
+  const paint = (label) => {
+    cards.paint(label, via);
+    hand.paint(label, via, c.seed);
+  };
   paint(o.route?.label ?? '');
   return paint;
+}
+
+/**
+ * A hand-lettered destination card: the number in red marker, the stops
+ * in blue, on a strip cut from a box, slightly uneven.
+ */
+function paintHandCard(ctx, w, h, label = '', via = '', seed = 1) {
+  ctx.fillStyle = '#e9e0c9';
+  ctx.fillRect(0, 0, w, h);
+  ctx.fillStyle = 'rgba(150,120,80,0.18)';
+  for (let i = 0; i < 6; i++) ctx.fillRect(0, (h / 6) * i + 2, w, 1);
+  const hand = '"Marker Felt", "Comic Sans MS", "Segoe Print", cursive';
+  const tilt = ((seed % 7) - 3) * 0.006;
+  ctx.save();
+  ctx.translate(w / 2, h / 2);
+  ctx.rotate(tilt);
+  ctx.translate(-w / 2, -h / 2);
+  fitText(ctx, label, h * 0.62, h * 0.54, h * 1.1, h * 0.84, '#c0221c', { family: hand });
+  const stops = via.split(' – ').join(' - ');
+  fitText(ctx, stops, w * 0.6, h * 0.36, w * 0.74, h * 0.36, '#1f3f99', { family: hand });
+  fitText(ctx, kazVia(via).split(' – ').join(' - '), w * 0.6, h * 0.74, w * 0.74, h * 0.28, '#1f3f99', { family: hand, weight: 'normal' });
+  ctx.restore();
+  // tape at the corners
+  ctx.fillStyle = 'rgba(235,230,200,0.7)';
+  ctx.fillRect(0, 0, 22, 12);
+  ctx.fillRect(w - 22, 0, 22, 12);
 }
 
 /** Tiny local PRNG (mulberry32). */
