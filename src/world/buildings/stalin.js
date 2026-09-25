@@ -222,13 +222,22 @@ export function buildStalin(ctx, spec) {
         if (k === 1 && side < 0) box(ww + 0.6, 0.22, 0.2, WHITE, lx, cy + wh / 2 + 0.16, side * (D / 2 + 0.1));
         // little balconies on the first upper floor, every third bay
         if (k >= 1 && k <= 2 && side < 0 && bi % 3 === 1 && !inArch(lx)) {
+          // a stone slab on two carved consoles, balusters on three sides
           const by = floorY;
-          box(ww + 0.9, 0.16, 0.9, WHITE, lx, by - 0.16, -D / 2 - 0.45);
-          for (let t = -(ww + 0.8) / 2; t <= (ww + 0.8) / 2 + 0.01; t += 0.22) {
-            const [bx, bz] = toW(lx + t, -D / 2 - 0.84);
-            batch.cyl(0.05, 0.8, WHITE, bx, by, bz, { seg: 6, rTop: 0.035 });
+          const bw = ww + 0.9, half = (ww + 0.8) / 2;
+          box(bw, 0.16, 0.96, WHITE, lx, by - 0.16, -D / 2 - 0.44);
+          box(bw + 0.08, 0.06, 1.0, 0xe2ddd0, lx, by - 0.22, -D / 2 - 0.46, { cast: false });
+          for (const sx of [-1, 1]) {
+            box(0.2, 0.5, 0.3, WHITE, lx + sx * (half - 0.2), by - 0.72, -D / 2 - 0.15);
+            box(0.2, 0.3, 0.55, WHITE, lx + sx * (half - 0.2), by - 0.52, -D / 2 - 0.27);
           }
-          box(ww + 0.9, 0.08, 0.14, WHITE, lx, by + 0.8, -D / 2 - 0.84);
+          const baluster = (bx, bz) => batch.cyl(0.05, 0.8, WHITE, bx, by, bz, { seg: 6, rTop: 0.035 });
+          for (let t = -half; t <= half + 0.01; t += 0.22) baluster(...toW(lx + t, -D / 2 - 0.84));
+          for (const sx of [-1, 1]) {
+            for (let d = 0.2; d < 0.84; d += 0.22) baluster(...toW(lx + sx * half, -D / 2 - d));
+            box(0.14, 0.08, 0.86, WHITE, lx + sx * half, by + 0.8, -D / 2 - 0.43);
+          }
+          box(bw, 0.08, 0.14, WHITE, lx, by + 0.8, -D / 2 - 0.84);
         }
         if (k > 0 && rng.chance(0.12)) {
           box(0.78, 0.5, 0.26, 0xeceae4, lx + ww / 2 + 0.55, floorY + 0.5, side * (D / 2 + 0.14));

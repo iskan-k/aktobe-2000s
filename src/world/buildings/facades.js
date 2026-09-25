@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { cel } from '../../core/toon.js';
+import { cel, flat } from '../../core/toon.js';
 import { canvasTex, cached } from '../../core/textures.js';
 import { rngKit } from '../../core/util.js';
 
@@ -85,15 +85,28 @@ function drawPanel(ctx, w, h, spec, r) {
     ctx.fillRect(r.range(0, w), r.range(0, h), s, s);
   }
   ctx.globalAlpha = 1;
-  // seams with dark sealant, and the stain that runs down from them
-  ctx.fillStyle = rgb(spec.mortar);
-  ctx.fillRect(0, 0, w, 5);
-  ctx.fillRect(0, 0, 5, h);
-  const g = ctx.createLinearGradient(0, 5, 0, 60);
-  g.addColorStop(0, 'rgba(80,72,64,0.25)');
+  // seams: a strip of dark mastic with a pale chamfered panel edge either
+  // side, patched here and there where the flat above complained of leaks
+  const seam = (x, y, sw, sh) => {
+    ctx.fillStyle = rgb(spec.base, 22);
+    ctx.fillRect(x - 3, y - 3, sw + 6, sh + 6);
+    ctx.fillStyle = rgb(spec.mortar);
+    ctx.fillRect(x, y, sw, sh);
+  };
+  seam(0, 0, w, 7);
+  seam(0, 0, 7, h);
+  seam(0, h - 1, w, 1);
+  ctx.fillStyle = 'rgba(40,36,32,0.55)';
+  for (let i = 0; i < 3; i++) ctx.fillRect(r.range(20, w - 80), 0, r.range(30, 70), 9);
+  const g = ctx.createLinearGradient(0, 7, 0, 70);
+  g.addColorStop(0, 'rgba(80,72,64,0.3)');
   g.addColorStop(1, 'rgba(80,72,64,0)');
   ctx.fillStyle = g;
-  ctx.fillRect(0, 5, w, 55);
+  ctx.fillRect(7, 7, w - 7, 63);
+  // rust streaks from the embedded fixings at the panel corners
+  ctx.fillStyle = 'rgba(140,86,50,0.22)';
+  ctx.fillRect(14, 8, 3, r.range(30, 70));
+  ctx.fillRect(w - 18, 8, 3, r.range(20, 60));
 }
 
 function drawStucco(ctx, w, h, spec, r) {
@@ -153,7 +166,9 @@ export function wallMaterial(key) {
 export const ATLAS_N = 8;
 /** Named ranges of atlas cells. */
 export const WIN = {
-  flat: [0, 40],        // ordinary flat windows
+  flat: [0, 40],        // ordinary flat windows (the last four have a lamp on)
+  unlit: [0, 36],       // flat windows with the lights off
+  lit: [36, 40],        // a lamp on behind the tulle; drawn with litWindowMaterial
   grille: [40, 48],     // ground floor behind grilles
   stair: [48, 52],      // stairwell windows
   glassBlock: [52, 54], // glass-block stair panels
@@ -192,11 +207,17 @@ function drape(ctx, x, y, w, h, color) {
 
 /** A flat window: frame, sashes, fortochka, glass, and what hangs behind it. */
 function drawFlatWindow(ctx, x0, y0, s, r, i) {
-  const pad = 6;
+  const pad = 7;
   const x = x0 + pad, y = y0 + pad, w = s - pad * 2, h = s - pad * 2;
-  // dark reveal
-  ctx.fillStyle = '#3c3935';
+  const lit = i >= WIN.lit[0] && i < WIN.lit[1];
+  // the reveal: the window sits a brick deep in the wall, so the lintel
+  // throws a shadow across the top and one jamb catches the light
+  ctx.fillStyle = '#4a4640';
   ctx.fillRect(x0, y0, s, s);
+  ctx.fillStyle = '#2c2a27';
+  ctx.fillRect(x0, y0, s, pad + 3);
+  ctx.fillStyle = '#6a655c';
+  ctx.fillRect(x0, y0 + pad, pad * 0.6, s - pad);
   const frames = [['#ebe7dc', 5], ['#e3dccb', 5], ['#7b5a3e', 5], ['#f6f6f2', 7], ['#9a7b5a', 5]];
   const [frame, fw] = r.pick(frames);
   ctx.fillStyle = frame;
@@ -212,7 +233,8 @@ function drawFlatWindow(ctx, x0, y0, s, r, i) {
   const kind = r.weighted([['tulle', 10], ['drapes', 6], ['blinds', 3], ['foil', 2], ['bare', 3], ['paper', 1]]);
   const cc = r.pick(CURTAIN);
   for (const [px, py, pw, ph] of panes) {
-    glassFill(ctx, px, py, pw, ph, r);
+    if (lit) litRoom(ctx, px, py, pw, ph, r);
+    else glassFill(ctx, px, py, pw, ph, r);
     if (kind === 'tulle') tulle(ctx, px, py, pw, ph, r);
     if (kind === 'drapes') { tulle(ctx, px, py, pw, ph, r); drape(ctx, px, py, pw * 0.35, ph, cc); drape(ctx, px + pw * 0.65, py, pw * 0.35, ph, cc); }
     if (kind === 'blinds') {
@@ -241,17 +263,56 @@ function drawFlatWindow(ctx, x0, y0, s, r, i) {
   }
   // open fortochka reads darker
   if (r.chance(0.35)) { ctx.fillStyle = 'rgba(20,24,28,0.6)'; const p = panes[0]; ctx.fillRect(p[0], p[1], p[2], p[3]); }
-  // pot plant or a jar on the sill
-  if (r.chance(0.25)) {
+  // the lintel's shadow falls on the top of the frame too
+  ctx.fillStyle = 'rgba(20,18,16,0.28)';
+  ctx.fillRect(x, y, w, 5);
+  // on the sill inside: geraniums, an aloe, a jar of pickles
+  const pots = r.chance(0.4) ? r.int(1, 3) : 0;
+  for (let k = 0; k < pots; k++) {
+    const px = x + fw + 6 + r.range(0, w - 2 * fw - 22);
+    const base = y + h - fw - 2;
+    const kind = r.int(0, 2);
+    if (kind === 2) {
+      ctx.fillStyle = 'rgba(190,200,170,0.85)';
+      ctx.fillRect(px, base - 13, 9, 13);
+      ctx.fillStyle = '#a8b04a';
+      ctx.fillRect(px + 1, base - 9, 7, 8);
+      continue;
+    }
     ctx.fillStyle = '#b0603a';
-    ctx.fillRect(x + w * 0.15, y + h - fw - 12, 10, 10);
-    ctx.fillStyle = '#4f7a36';
-    ctx.beginPath(); ctx.arc(x + w * 0.15 + 5, y + h - fw - 16, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillRect(px, base - 9, 11, 9);
+    ctx.fillStyle = kind ? '#5b8a3c' : '#4f7a36';
+    ctx.beginPath(); ctx.arc(px + 5.5, base - 14, kind ? 6 : 8, 0, Math.PI * 2); ctx.fill();
+    if (!kind) {
+      ctx.fillStyle = r.pick(['#d8322e', '#e8506a', '#f07a3a']);
+      for (let f = 0; f < 4; f++) ctx.fillRect(px + r.range(0, 10), base - 22 + r.range(0, 6), 3, 3);
+    } else {
+      ctx.fillStyle = '#6f9a4a';
+      for (let f = 0; f < 4; f++) ctx.fillRect(px + 2 + f * 2, base - 22, 1.5, 10);
+    }
   }
-  // sill
-  ctx.fillStyle = '#9a968e';
-  ctx.fillRect(x0 + 2, y0 + s - 5, s - 4, 5);
-  void i;
+  // steel sill below
+  ctx.fillStyle = '#b4b2ac';
+  ctx.fillRect(x0 + 1, y0 + s - 6, s - 2, 3);
+  ctx.fillStyle = '#5e5a54';
+  ctx.fillRect(x0 + 1, y0 + s - 3, s - 2, 3);
+}
+
+/** A room with the light on: warm wallpaper, a carpet on the wall, the lamp. */
+function litRoom(ctx, x, y, w, h, r) {
+  const g = ctx.createLinearGradient(x, y, x, y + h);
+  g.addColorStop(0, '#f6d58c');
+  g.addColorStop(1, '#c98f4a');
+  ctx.fillStyle = g;
+  ctx.fillRect(x, y, w, h);
+  ctx.fillStyle = 'rgba(150,90,50,0.18)';
+  for (let fx = x + 2; fx < x + w; fx += 7) ctx.fillRect(fx, y, 2, h);
+  if (r.chance(0.5)) {
+    ctx.fillStyle = 'rgba(150,40,40,0.55)';
+    ctx.fillRect(x + w * 0.2, y + h * 0.25, w * 0.6, h * 0.5);
+  }
+  ctx.fillStyle = 'rgba(255,240,200,0.9)';
+  ctx.beginPath(); ctx.arc(x + w / 2, y + 6, 5, 0, Math.PI * 2); ctx.fill();
 }
 
 function drawGrille(ctx, x0, y0, s, r) {
@@ -517,4 +578,122 @@ export function greekKeyMaterial() {
     m.userData.tileH = 1.0;
     return m;
   });
+}
+
+/**
+ * The window atlas again, unlit, for the few windows where somebody has
+ * already switched the light on. Use with cells from WIN.lit.
+ */
+export function litWindowMaterial() {
+  return cached('window-atlas-lit', () => {
+    const m = flat({ map: windowAtlas().map, color: 0xe8dcc4, polygonOffset: 1, cache: false });
+    m.userData.noShadow = true;
+    return m;
+  });
+}
+
+/* ---------------- glazed balconies ---------------- */
+
+export const BGLASS_N = 8;   // cells, 4 across by 2 down
+
+/**
+ * What you see through the glazing of an enclosed balcony: sky caught in
+ * the glass, and behind it the things that live on balconies. Jars of
+ * preserves on a shelf, cardboard boxes, skis, a bicycle wheel, washing,
+ * a curtain. One cell per run of panes; the frames are real geometry.
+ */
+export function balconyGlassMaterial() {
+  return cached('balcony-glass', () => {
+    const CW = 256, CH = 128;
+    const tex = canvasTex(CW * 4, CH * 2, (ctx) => {
+      const r = rngKit(4471);
+      for (let i = 0; i < BGLASS_N; i++) {
+        drawBalconyGlass(ctx, (i % 4) * CW, Math.floor(i / 4) * CH, CW, CH, r, i);
+      }
+    }, { mips: true });
+    const m = cel({ map: tex, bands: 3, grime: 0.02, dirt: 0, polygonOffset: 1, cache: false });
+    m.userData.noShadow = true;
+    return m;
+  });
+}
+
+/** uv rectangle [u0, v0, u1, v1] of a balcony glass cell. */
+export function balconyGlassUV(i) {
+  const c = i % 4, row = Math.floor(i / 4) % 2;
+  const e = 0.002;
+  return [c / 4 + e, 1 - (row + 1) / 2 + e, (c + 1) / 4 - e, 1 - row / 2 - e];
+}
+
+function drawBalconyGlass(ctx, x0, y0, w, h, r, i) {
+  const g = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  g.addColorStop(0, '#5a6570');
+  g.addColorStop(1, '#3a3f44');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+  // the back wall of the balcony: the flat's own door and window
+  ctx.fillStyle = 'rgba(40,44,50,0.8)';
+  ctx.fillRect(x0 + w * 0.1, y0 + h * 0.15, w * 0.3, h * 0.85);
+  ctx.fillStyle = 'rgba(210,206,196,0.35)';
+  ctx.fillRect(x0 + w * 0.55, y0 + h * 0.2, w * 0.3, h * 0.4);
+  const shelf = () => {
+    ctx.fillStyle = '#7a6048';
+    ctx.fillRect(x0 + 4, y0 + h * 0.55, w - 8, 3);
+    for (let k = 0; k < 14; k++) {
+      const jx = x0 + 10 + k * ((w - 20) / 14);
+      ctx.globalAlpha = 0.85;
+      ctx.fillStyle = r.pick(['#b8423a', '#c9a23a', '#7a9a4a', '#d86a3a', '#9a3a5a']);
+      ctx.fillRect(jx, y0 + h * 0.55 - 12, 9, 12);
+      ctx.fillStyle = '#c8c4b8';
+      ctx.fillRect(jx, y0 + h * 0.55 - 14, 9, 2);
+      ctx.globalAlpha = 1;
+    }
+  };
+  const boxes = () => {
+    for (let k = 0; k < 4; k++) {
+      const bw = r.range(26, 50), bh = r.range(20, 44);
+      ctx.fillStyle = r.pick(['#b89a6a', '#a8875a', '#c8b08a']);
+      ctx.fillRect(x0 + 8 + k * 58, y0 + h - bh, bw, bh);
+      ctx.fillStyle = 'rgba(60,40,20,0.3)';
+      ctx.fillRect(x0 + 8 + k * 58, y0 + h - bh + 6, bw, 2);
+    }
+  };
+  if (i === 0 || i === 4) shelf();
+  if (i === 1 || i === 4) boxes();
+  if (i === 2) {
+    // skis stood on end and a bicycle wheel
+    ctx.fillStyle = '#c8322e'; ctx.fillRect(x0 + 30, y0 + 8, 6, h - 8);
+    ctx.fillStyle = '#2d4a78'; ctx.fillRect(x0 + 40, y0 + 12, 6, h - 12);
+    ctx.strokeStyle = '#2a2a2a'; ctx.lineWidth = 3;
+    ctx.beginPath(); ctx.arc(x0 + w * 0.7, y0 + h * 0.62, 30, 0, Math.PI * 2); ctx.stroke();
+    boxes();
+  }
+  if (i === 3 || i === 6) {
+    ctx.fillStyle = '#d8d4c8'; ctx.fillRect(x0, y0 + 16, w, 2);
+    for (let k = 0; k < 6; k++) {
+      ctx.fillStyle = r.pick(['#e8e2d0', '#c9553d', '#5a7aa8', '#d8c27a', '#6f8a4a', '#f2f0ea']);
+      ctx.fillRect(x0 + 12 + k * 40, y0 + 18, r.range(18, 30), r.range(24, 50));
+    }
+  }
+  if (i === 5 || i === 7) {
+    // a curtain drawn across, faded by the sun
+    const cw = i === 5 ? w : w * 0.55;
+    ctx.globalAlpha = 0.85;
+    ctx.fillStyle = r.pick(['#d8c8a0', '#c8d0d8', '#e0c0a8']);
+    ctx.fillRect(x0, y0, cw, h);
+    ctx.globalAlpha = 1;
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    for (let fx = x0 + 3; fx < x0 + cw; fx += 7) ctx.fillRect(fx, y0, 2, h);
+  }
+  // the sky caught in the glass: a pale band and a diagonal glint
+  const sky = ctx.createLinearGradient(x0, y0, x0, y0 + h);
+  sky.addColorStop(0, 'rgba(190,214,236,0.45)');
+  sky.addColorStop(0.45, 'rgba(160,186,210,0.15)');
+  sky.addColorStop(1, 'rgba(120,140,160,0.05)');
+  ctx.fillStyle = sky;
+  ctx.fillRect(x0, y0, w, h);
+  ctx.fillStyle = 'rgba(255,255,255,0.16)';
+  const gx = x0 + r.range(0, w * 0.6);
+  ctx.beginPath();
+  ctx.moveTo(gx, y0 + h); ctx.lineTo(gx + 40, y0); ctx.lineTo(gx + 70, y0); ctx.lineTo(gx + 30, y0 + h);
+  ctx.fill();
 }

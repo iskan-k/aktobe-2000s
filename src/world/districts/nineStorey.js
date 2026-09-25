@@ -47,6 +47,7 @@ export const nineStorey = {
     const N1 = buildBlock(ctx, {
       sheet, x: X(39), z: Z(15.5), facing: Math.PI, storeys: 9, sections: 3, sectionW: 22, depth: 13,
       wall: 'silicate', back: 'strips', front: 'strips', parapet: 'greek', ornament: 'end', plinth: 'grey', seed: 21,
+      shops: [{ section: 1, bay: 3, lines: ['Шаштараз «Ару»', 'Парикмахерская «Ару»'], bg: '#9a3a6a', fg: '#ffffff', roof: 0x9a3a6a }],
     });
     // along Санкибай батыра
     const N2 = buildBlock(ctx, {

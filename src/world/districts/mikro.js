@@ -60,6 +60,10 @@ export const mikro = {
     const A = buildBlock(ctx, {
       sheet, x: X(10.75), z: Z(49.5), facing: -Math.PI / 2, storeys: 5, sections: 4, sectionW: 15, depth: 12,
       wall: 'panel', back: 'balconies', parapet: 'sheet', plinth: 'grey', gasPipe: true, seed: 31,
+      shops: [
+        { section: 1, bay: 2, lines: ['Азық-түлік', 'Продукты'], bg: '#1f4e8c', fg: '#f2c230' },
+        { section: 3, bay: 2, lines: ['Шаштараз', 'Парикмахерская'], bg: '#8a2032', fg: '#f4ead8', roof: 0x8a2032 },
+      ],
     });
     // middle: 1-447 cream brick, between the two yards
     const D = buildBlock(ctx, {
@@ -70,11 +74,16 @@ export const mikro = {
     const C = buildBlock(ctx, {
       sheet, x: X(104.25), z: Z(44.5), facing: Math.PI / 2, storeys: 5, sections: 4, sectionW: 15, depth: 12,
       wall: 'silicate', back: 'balconies', parapet: 'sheet', plinth: 'grey', gasPipe: true, seed: 47,
+      shops: [{ section: 2, bay: 2, lines: ['Дәріхана', 'Аптека'], bg: '#f4f4f0', fg: '#1f7a3a', roof: 0x2f8a4a }],
     });
     // south: a long 1-464, six podyezds, backing onto ул. Маресьева
     const S = buildBlock(ctx, {
       sheet, x: X(65.25), z: Z(85.5), facing: 0, storeys: 5, sections: 6, sectionW: 15, depth: 12,
       wall: 'panel', back: 'balconies', parapet: 'sheet', plinth: 'grey', gasPipe: true, seed: 53,
+      shops: [
+        { section: 1, bay: 2, lines: ['Аяқ киім жөндеу', 'Ремонт обуви'], bg: '#3d5a44', fg: '#f4ead8', roof: 0x3d5a44 },
+        { section: 4, bay: 2, lines: ['Азық-түлік · 24 сағат', 'Продукты · 24 часа'], bg: '#c8201e', fg: '#ffffff', roof: 0xa8382c },
+      ],
     });
 
     /* ---- ground ---- */

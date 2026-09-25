@@ -1,11 +1,12 @@
 import * as THREE from 'three';
 import { PAL } from '../../core/palette.js';
 import { rngKit, rotXZ } from '../../core/util.js';
-import { canvasTex, cached, centerText, FONT } from '../../core/textures.js';
+import { canvasTex, cached, centerText, signTex, FONT } from '../../core/textures.js';
 import { cel } from '../../core/toon.js';
 import { addBench, addBin } from '../props/street.js';
 import {
-  wallMaterial, windowAtlas, cellUV, pickCell, WIN, ornamentMaterial, greekKeyMaterial,
+  wallMaterial, windowAtlas, cellUV, pickCell, WIN, WALLS, ornamentMaterial, greekKeyMaterial,
+  litWindowMaterial, balconyGlassMaterial, balconyGlassUV, BGLASS_N,
 } from './facades.js';
 import { placeSign } from './signs.js';
 
@@ -40,6 +41,9 @@ import { placeSign } from './signs.js';
 export const STOREY = 2.8;
 const WIN_W = 1.42, WIN_H = 1.42, SILL = 0.86;
 const ROOF = 0x6b6660;   // weathered rubberoid, lighter than fresh tar
+// panel joints run 10 cm under each floor: the wall quads start 0.9 m
+// below the first floor, so v is offset to put a tile edge there
+const PANEL_V0 = (-0.9 + 0.1) / STOREY;
 
 /** What is taped to the podyezd door, read out when you try it. */
 const DOOR_NOTES = [
@@ -144,6 +148,19 @@ function plateTex(storeys, i) {
   return cached(`plate|${row}|${i}`, () => canvasTex(128, 64, (ctx) => drawPlate(ctx, 0, 0, 128, 64, i, PLATE_ROWS[row])));
 }
 
+/** The enamel house-number plate on a corner: white numeral on blue. */
+function houseNumberTex(n) {
+  return cached(`house-number|${n}`, () => canvasTex(128, 96, (ctx, w, h) => {
+    ctx.fillStyle = '#e8e4da';
+    ctx.fillRect(0, 0, w, h);
+    ctx.fillStyle = '#1f4e8c';
+    ctx.fillRect(5, 5, w - 10, h - 10);
+    centerText(ctx, String(n), w / 2, h * 0.56, w - 30, 58, '#ffffff', { family: FONT.sans });
+    ctx.fillStyle = 'rgba(80,60,40,0.3)';
+    ctx.fillRect(9, h - 16, 26, 4);
+  }));
+}
+
 function plateUV(storeys, i) {
   const row = plateRow(storeys);
   const c = Math.min(i, 7);
@@ -159,7 +176,10 @@ export function buildBlock(ctx, spec) {
     back = 'balconies', front = 'plain', bands = null, parapet = 'sheet',
     ornament = null, plinth = 'grey', gasPipe = false, liftRooms = storeys >= 9,
     aerials = 4, seed = 1, lift = 0.6, benches = true, endWindows = false, doors = true, sheet = null,
+    shops = [],
   } = spec;
+  /** Is the ground-floor window at (section, bay, side) now a shop's door? */
+  const converted = (s, bi, side, k) => k === 0 && shops.some((c) => c.section === s && c.bay === bi && (c.side ?? 1) === side);
   const { batch, colliders, ground } = ctx;
   const rng = rngKit(seed);
   const L = sections * sectionW, D = depth;
@@ -181,6 +201,18 @@ export function buildBlock(ctx, spec) {
     batch.box(w, h, d, color, wx, ly, wz, { ...o, ry: facing + (o.ry || 0) });
   };
 
+  /** A satellite dish on a wall bracket at local (lx, ly, lz), looking out and up. */
+  const satDish = (lx, ly, lz, side) => {
+    const out = lz + side * 0.45;
+    box(0.05, 0.05, 0.45, PAL.metalGrey, lx, ly, lz + side * 0.22, { cast: false });
+    const [wx, wz] = toW(lx, out);
+    batch.cyl(0.06, 0.14, 0xe8e6e0, wx, ly - 0.05, wz, { rx: side * 1.05, ry: facing, rTop: 0.34, open: true, seg: 12, cast: false });
+    // the arm and the LNB in front of the dish
+    const [ax, az] = toW(lx, out + side * 0.36);
+    batch.tube(wx, ly - 0.2, wz, ax, ly + 0.12, az, 0.012, PAL.metalGrey, { seg: 3, cast: false });
+    box(0.06, 0.06, 0.1, 0x3a3a3a, lx, ly + 0.09, out + side * 0.36, { cast: false });
+  };
+
   const quads = new QuadSet();
   const wmat = wallMaterial(wall);
   const atlas = windowAtlas();
@@ -190,13 +222,23 @@ export function buildBlock(ctx, spec) {
   /* ---- walls ---- */
   const wallH = H - floor0 + 0.9;   // down into the plinth
   const wallY = floor0 - 0.9 + wallH / 2;
-  quads.wall(wmat, [0, wallY, -D / 2], '-z', L, wallH, 0, floor0 - 0.9);
-  quads.wall(wmat, [0, wallY, D / 2], '+z', L, wallH, 0, floor0 - 0.9);
+  // Large panels are one bay wide and one storey high, joined at the floor
+  // slabs: their uv is set per building so the joints fall between the
+  // windows and not through them. Brick and tile keep world metres.
+  const panelled = WALLS[wall]?.kind === 'panel';
+  const longWall = (c, face) => {
+    if (!panelled) { quads.wall(wmat, c, face, L, wallH, 0, floor0 - 0.9); return; }
+    quads.quad(wmat, c, face, L, wallH, [0, PANEL_V0, L / bayW, PANEL_V0 + wallH / STOREY]);
+  };
+  longWall([0, wallY, -D / 2], '-z');
+  longWall([0, wallY, D / 2], '+z');
   for (const sx of [-1, 1]) {
     const face = sx < 0 ? '-x' : '+x';
     if (orn && ornament === 'end') {
       const cUV = [0, 0, 1, 1];
       quads.quad(orn, [sx * L / 2, wallY, 0], face, D, wallH, cUV);
+    } else if (panelled) {
+      quads.quad(wmat, [sx * L / 2, wallY, 0], face, D, wallH, [0, PANEL_V0, D / 3, PANEL_V0 + wallH / STOREY]);
     } else {
       quads.wall(wmat, [sx * L / 2, wallY, 0], face, D, wallH, 0, floor0 - 0.9);
     }
@@ -207,11 +249,22 @@ export function buildBlock(ctx, spec) {
       quads.quad(orn, [0, topY - 1.0, (face === '-z' ? -1 : 1) * (D / 2 + 0.01)], face, L, 1.5, [0, 0, L / 12, 1]);
     }
   }
-  // roof surface
+  // roof surface, patched over the years with fresh rolls of rubberoid
   box(L, 0.12, D, ROOF, 0, H - 0.12, 0);
+  for (let i = 0; i < Math.round(L / 8); i++) {
+    box(rng.range(1.5, 4), 0.02, rng.range(1, 3), rng.pick([0x55504b, 0x4a4642, 0x7a746c]),
+      rng.range(-L / 2 + 2.5, L / 2 - 2.5), H, rng.range(-D / 2 + 1.8, D / 2 - 1.8), { ry: rng.chance(0.5) ? 0 : Math.PI / 2, cast: false });
+  }
 
   /* ---- windows ---- */
-  const winCell = (k) => (k === 0 && rng.chance(0.55) ? pickCell(rng, WIN.grille) : pickCell(rng, WIN.flat));
+  const winCell = (k) => (k === 0 && rng.chance(0.55) ? pickCell(rng, WIN.grille) : pickCell(rng, WIN.unlit));
+  const litMat = litWindowMaterial();
+  /** A flat window, now and then with the light on, and its steel sill. */
+  const flatWindow = (lx, cy, zf, face, side, w, k) => {
+    if (k > 0 && rng.chance(0.035)) quads.quad(litMat, [lx, cy, zf], face, w, WIN_H, cellUV(pickCell(rng, WIN.lit)));
+    else quads.quad(atlas, [lx, cy, zf], face, w, WIN_H, cellUV(winCell(k)));
+    box(w + 0.12, 0.035, 0.14, PAL.metalGrey, lx, cy - WIN_H / 2 - 0.035, side * (D / 2 + 0.07), { cast: false });
+  };
   const hasBack = (bi) => (back === 'balconies' || back === 'strips') && (bi === 1 || bi === bays - 2);
   const hasFrontStrip = (bi) => front === 'strips' && (bi === stairBay - 1 || bi === stairBay + 1);
   const acUnits = [];
@@ -238,10 +291,11 @@ export function buildBlock(ctx, spec) {
           const cy = floor0 + k * STOREY + SILL + WIN_H / 2;
           const kitchen = (bi + s) % 3 === 2;
           const w = kitchen ? 1.18 : WIN_W;
-          quads.quad(atlas, [lx, cy, zf], face, w, WIN_H, cellUV(winCell(k)));
+          if (converted(s, bi, side, k)) continue;
+          flatWindow(lx, cy, zf, face, side, w, k);
           const loggiaHere = (side > 0 && hasBack(bi) && (back === 'strips' || k > 0)) || (side < 0 && hasFrontStrip(bi));
           if (!loggiaHere && k > 0 && rng.chance(0.13)) acUnits.push([lx + (rng.chance(0.5) ? -1 : 1) * (w / 2 + 0.5), floor0 + k * STOREY + 0.55, side]);
-          if (!loggiaHere && rng.chance(0.03)) dishes.push([lx + w / 2 + 0.45, floor0 + k * STOREY + 1.6, side]);
+          if (!loggiaHere && k > 0 && rng.chance(0.03)) dishes.push([lx + w / 2 + 0.45, floor0 + k * STOREY + 1.6, side]);
         }
       }
     }
@@ -256,45 +310,109 @@ export function buildBlock(ctx, spec) {
   }
 
   /* ---- balconies and loggias ---- */
+  // A balcony is a cantilevered slab with a parapet on three sides; on the
+  // brick 1-447s it also rests on a pair of steel brackets. A loggia strip
+  // is a column of boxes with side fins from the plinth to the roof. Either
+  // may be glazed, in whatever frames the owner could afford, and a glazed
+  // top balcony gets its own sheet-metal roof.
+  const bglass = balconyGlassMaterial();
+  const brick = WALLS[wall]?.kind === 'brick';
+  const faceOf = (side) => (side < 0 ? '-z' : '+z');
+
+  /** A run of parapet from (ax, az) to (bx, bz), local, at floor height yb. */
+  const parapetRun = (ax, az, bx, bz, yb, pc, front, side) => {
+    const len = Math.hypot(bx - ax, bz - az);
+    const alongX = Math.abs(bx - ax) > Math.abs(bz - az);
+    const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+    const bw = alongX ? len : 0.08, bd = alongX ? 0.08 : len;
+    if (parapet === 'bars' && pc === null) {
+      box(alongX ? len + 0.06 : 0.06, 0.05, alongX ? 0.06 : len + 0.06, PAL.metalDark, cx, yb + 0.95, cz);
+      box(alongX ? len : 0.04, 0.04, alongX ? 0.04 : len, PAL.metalDark, cx, yb + 0.12, cz);
+      const n = Math.max(2, Math.round(len / 0.16));
+      for (let i = 1; i < n; i++) {
+        const t = i / n;
+        box(0.022, 0.83, 0.022, PAL.metalDark, ax + (bx - ax) * t, yb + 0.12, az + (bz - az) * t, { cast: false });
+      }
+      return;
+    }
+    const c = pc ?? 0xcfc8b8;
+    box(bw, 1.0, bd, c, cx, yb, cz);
+    // the steel handrail on top of every parapet
+    box(alongX ? len + 0.08 : 0.12, 0.05, alongX ? 0.12 : len + 0.08, PAL.metalGrey, cx, yb + 1.0, cz);
+    if (front && parapet === 'greek' && pc === 0xcfc8b8) {
+      quads.wall(gk, [cx, yb + 0.5, cz + side * 0.044], faceOf(side), len, 1.0, cx + L, 0);
+    }
+  };
+
+  /** Frames and glass filling an opening from (ax, az) to (bx, bz), y0 up gh. */
+  const glazeRun = (ax, az, bx, bz, y0, gh, fc, cell, face) => {
+    const len = Math.hypot(bx - ax, bz - az);
+    const alongX = Math.abs(bx - ax) > Math.abs(bz - az);
+    const cx = (ax + bx) / 2, cz = (az + bz) / 2;
+    const n = Math.max(1, Math.round(len / 0.7));
+    quads.quad(bglass, [cx, y0 + gh / 2, cz], face, len, gh, balconyGlassUV(cell));
+    const fb = (lenA, h, px, py, pz) => box(alongX ? lenA : 0.07, h, alongX ? 0.07 : lenA, fc, px, py, pz, { cast: false });
+    fb(len, 0.07, cx, y0, cz);
+    fb(len, 0.07, cx, y0 + gh - 0.07, cz);
+    for (let i = 0; i <= n; i++) {
+      const t = i / n;
+      box(0.06, gh, 0.06, fc, ax + (bx - ax) * t, y0, az + (bz - az) * t, { cast: false });
+    }
+  };
+
   const loggia = (lx, k, side, stripIdx, style) => {
     const deep = style === 'strip' ? 1.2 : 1.0;
     const w = bayW - 0.25;
     const yb = floor0 + k * STOREY;
+    const zw = side * D / 2;
     const zc = side * (D / 2 + deep / 2);
+    const zf = side * (D / 2 + deep - 0.04);
+    const top = k === storeys - 1;
     const band = bands ? bands[stripIdx % bands.length] : null;
-    // floor slab
-    box(w + 0.1, 0.14, deep, PAL.concrete, lx, yb - 0.14, zc);
-    // parapet front
-    const pc = band ?? (parapet === 'sheet' ? rng.pick([0xcfc8b8, 0xb8b4a8, 0x9aa3a0, 0xd6d0c4]) : PAL.concrete);
-    if (parapet === 'greek' && !band) {
-      box(w, 1.0, 0.1, 0xcfc8b8, lx, yb, side * (D / 2 + deep - 0.05));
-      quads.wall(gk, [lx, yb + 0.5, side * (D / 2 + deep + 0.004)], side < 0 ? '-z' : '+z', w, 1.0, lx + L, 0);
-    } else if (parapet === 'bars' && !band) {
-      box(w, 0.06, 0.06, PAL.metalDark, lx, yb + 0.95, side * (D / 2 + deep - 0.03));
-      for (let t = -w / 2 + 0.1; t <= w / 2 - 0.1; t += 0.14) box(0.025, 0.95, 0.025, PAL.metalDark, lx + t, yb, side * (D / 2 + deep - 0.03));
-    } else {
-      box(w, 1.0, 0.1, pc, lx, yb, side * (D / 2 + deep - 0.05));
+    const x0 = lx - w / 2 + 0.04, x1 = lx + w / 2 - 0.04;
+    // floor slab, butted into the wall so no daylight shows under it
+    box(w + 0.1, 0.14, deep + 0.06, PAL.concrete, lx, yb - 0.14, zc - side * 0.03);
+    box(w + 0.14, 0.05, 0.05, PAL.concreteDark, lx, yb - 0.19, side * (D / 2 + deep - 0.02), { cast: false });
+    if (style === 'balcony' && brick) {
+      // steel brackets from the wall up under the slab
+      for (const sx of [-1, 1]) box(0.05, 0.9, 0.05, PAL.metalDark, lx + sx * (w / 2 - 0.25), yb - 0.7, zw, { rx: side * 0.85, cast: false });
     }
-    // side walls on strips (loggias are boxes, not open slabs)
-    if (style === 'strip') {
+    // parapet: sheet panels, concrete with a relief, or bars
+    const pc = band ?? (parapet === 'sheet' ? rng.pick([0xcfc8b8, 0xb8b4a8, 0x9aa3a0, 0xd6d0c4])
+      : parapet === 'greek' ? 0xcfc8b8 : null);
+    parapetRun(x0, zf, x1, zf, yb, pc, true, side);
+    if (style === 'balcony') {
+      parapetRun(x0, zw, x0, zf, yb, pc, false, side);
+      parapetRun(x1, zw, x1, zf, yb, pc, false, side);
+    } else {
+      // loggias are boxes, not open slabs: fins on both sides, full height
       for (const sx of [-1, 1]) box(0.12, STOREY - 0.14, deep, band ? PAL.panelLight : PAL.concrete, lx + sx * (w / 2 + 0.02), yb, zc);
+      if (top) box(w + 0.36, 0.16, deep + 0.1, PAL.concrete, lx, yb + STOREY - 0.14, zc + side * 0.05);
     }
     // glazing: mismatched, the whole point of a 2000s facade
     const g = rng.weighted([['open', style === 'strip' ? 3 : 5], ['wood', 3], ['pvc', 4], ['sheet', 1.5], ['siding', 1]]);
-    const gy = yb + 1.0, gh = STOREY - 1.18;
-    const gz = side * (D / 2 + deep - 0.06);
+    const gy = yb + 1.03, gh = STOREY - 1.2;
+    // the dish goes on the balcony rail, where the landlord cannot object
+    if (rng.chance(0.1)) satDish(lx + (w / 2 - 0.5) * (rng.chance(0.5) ? 1 : -1), yb + 1.05, zf, side);
     if (g === 'open') {
       if (rng.chance(0.25)) laundry(lx, yb, side, deep, w);
     } else if (g === 'sheet' || g === 'siding') {
-      box(w, gh, 0.06, g === 'sheet' ? 0x2f5fa8 : rng.pick([0xe8e0c8, 0xd8dccf, 0xc9b58f]), lx, gy, gz);
-      box(w + 0.04, 0.05, 0.12, PAL.metalGrey, lx, gy + gh, gz);
+      const sc = g === 'sheet' ? 0x2f5fa8 : rng.pick([0xe8e0c8, 0xd8dccf, 0xc9b58f]);
+      box(w, gh, 0.06, sc, lx, gy, zf);
+      box(w + 0.04, 0.05, 0.12, PAL.metalGrey, lx, gy + gh, zf);
+      if (style === 'balcony') for (const xs of [x0, x1]) box(0.06, gh, deep - 0.04, sc, xs, gy, zc);
     } else {
       const fc = g === 'wood' ? rng.pick([0x8a6a4a, 0xe8e4da, 0xa89070]) : 0xf4f4f0;
-      box(w, gh, 0.03, 0x5b7389, lx, gy, gz, { mat: 'glass' });
-      box(w, 0.07, 0.08, fc, lx, gy, gz);
-      box(w, 0.07, 0.08, fc, lx, gy + gh - 0.07, gz);
-      const n = Math.max(2, Math.round(w / 0.7));
-      for (let i = 0; i <= n; i++) box(0.06, gh, 0.08, fc, lx - w / 2 + (i * w) / n, gy, gz);
+      const cell = rng.int(0, BGLASS_N - 1);
+      glazeRun(x0, zf, x1, zf, gy, gh, fc, cell, faceOf(side));
+      if (style === 'balcony') {
+        glazeRun(x0, zw, x0, zf, gy, gh, fc, (cell + 3) % BGLASS_N, '-x');
+        glazeRun(x1, zw, x1, zf, gy, gh, fc, (cell + 5) % BGLASS_N, '+x');
+      }
+    }
+    // a glazed top balcony needs a roof of its own, sloping off the wall
+    if (top && style === 'balcony' && g !== 'open') {
+      box(w + 0.3, 0.05, deep + 0.3, PAL.metalGrey, lx, yb + STOREY - 0.12, zc + side * 0.12, { rx: side * 0.12 });
     }
   };
 
@@ -327,19 +445,27 @@ export function buildBlock(ctx, spec) {
 
   /* ---- AC units, dishes, drainpipes ---- */
   for (const [lx, ly, side] of acUnits) {
-    box(0.78, 0.52, 0.26, 0xeceae4, lx, ly, side * (D / 2 + 0.14));
-    box(0.44, 0.44, 0.02, 0x3a3a3a, lx + 0.12, ly + 0.04, side * (D / 2 + 0.28));
+    box(0.78, 0.52, 0.26, 0xeceae4, lx, ly, side * (D / 2 + 0.14), { cast: false });
+    box(0.44, 0.44, 0.02, 0x3a3a3a, lx + 0.12, ly + 0.04, side * (D / 2 + 0.28), { cast: false });
+    // wall brackets, and the drip tube hanging down the wall
+    box(0.04, 0.04, 0.3, PAL.metalGrey, lx - 0.3, ly - 0.04, side * (D / 2 + 0.15), { cast: false });
+    box(0.04, 0.04, 0.3, PAL.metalGrey, lx + 0.3, ly - 0.04, side * (D / 2 + 0.15), { cast: false });
+    box(0.02, 0.6, 0.02, 0x2a2826, lx + 0.34, ly - 0.6, side * (D / 2 + 0.05), { cast: false });
   }
-  for (const [lx, ly, side] of dishes) {
-    const [wx, wz] = toW(lx, side * (D / 2 + 0.3));
-    batch.cyl(0.34, 0.06, 0xe4e2dc, wx, ly, wz, { rx: Math.PI / 2 - 0.5 * side, ry: facing + (side < 0 ? Math.PI : 0), seg: 12 });
-  }
+  for (const [lx, ly, side] of dishes) satDish(lx, ly, side * (D / 2 + 0.05), side);
   const pipeXs = [-L / 2 + 0.25, L / 2 - 0.25];
   for (let s = 1; s < sections; s++) pipeXs.push(-L / 2 + s * sectionW);
   for (const px of pipeXs) {
     for (const side of [-1, 1]) {
-      const [wx, wz] = toW(px, side * (D / 2 + 0.1));
-      batch.cyl(0.07, H - 0.5, PAL.metalGrey, wx, 0.3, wz, { seg: 6 });
+      const zp = side * (D / 2 + 0.1);
+      const [wx, wz] = toW(px, zp);
+      batch.cyl(0.07, H - 0.95, PAL.metalGrey, wx, 0.55, wz, { seg: 6 });
+      // funnel under the roof edge, the offset back to the parapet, the
+      // outlet elbow at the foot with its splash block
+      batch.cyl(0.07, 0.3, PAL.metalGrey, wx, H - 0.4, wz, { seg: 6, rTop: 0.16, cast: false });
+      box(0.1, 0.1, 0.25, PAL.metalGrey, px, H - 0.18, side * (D / 2 + 0.02), { cast: false });
+      box(0.14, 0.12, 0.4, PAL.metalGrey, px, 0.42, side * (D / 2 + 0.25), { cast: false });
+      box(0.3, 0.06, 0.5, PAL.concrete, px, 0, side * (D / 2 + 0.55), { cast: false });
     }
   }
 
@@ -357,6 +483,12 @@ export function buildBlock(ctx, spec) {
   box(L + 0.1, 0.5, 0.25, PAL.concrete, 0, H, D / 2 - 0.12);
   box(0.25, 0.5, D, PAL.concrete, -L / 2 + 0.12, H, 0);
   box(0.25, 0.5, D, PAL.concrete, L / 2 - 0.12, H, 0);
+  // galvanised flashing over the parapet, lipped out past the wall
+  const FLASH = 0xa8aaa6;
+  box(L + 0.3, 0.05, 0.4, FLASH, 0, H + 0.5, -D / 2 + 0.1, { cast: false });
+  box(L + 0.3, 0.05, 0.4, FLASH, 0, H + 0.5, D / 2 - 0.1, { cast: false });
+  box(0.4, 0.05, D, FLASH, -L / 2 + 0.1, H + 0.5, 0, { cast: false });
+  box(0.4, 0.05, D, FLASH, L / 2 - 0.1, H + 0.5, 0, { cast: false });
   for (let s = 0; s < sections; s++) {
     const cx = -L / 2 + s * sectionW + (stairBay + 0.5) * bayW;
     if (liftRooms) {
@@ -405,6 +537,16 @@ export function buildBlock(ctx, spec) {
     box(2.4, 0.14, 1.6, PAL.concrete, lx, floor0 + 2.35, zf - 0.8);
     box(2.46, 0.05, 1.66, PAL.roofTar, lx, floor0 + 2.49, zf - 0.8);
     for (const sx of [-1, 1]) box(0.08, floor0 + 2.35, 0.08, PAL.metalDark, lx + sx * 1.1, 0, zf - 1.5);
+    // a bare bulb in a wire cage over the door, and the notice board beside
+    // it with its layers of paper: water off, a lost cat, plastic windows
+    box(0.16, 0.2, 0.14, 0x3a3a38, lx, floor0 + 2.1, zf - 0.08, { cast: false });
+    box(0.1, 0.1, 0.06, 0xf6e6b0, lx, floor0 + 2.12, zf - 0.16, { mat: 'glow', cast: false });
+    box(0.7, 0.9, 0.03, 0x7a5a3e, lx - 1.05, floor0 + 0.75, zf - 0.02, { cast: false });
+    for (let n = 0; n < 4; n++) {
+      if (rng.chance(0.25)) continue;
+      box(rng.range(0.16, 0.26), rng.range(0.2, 0.3), 0.01, rng.pick([0xf2eee2, 0xe8e2c8, 0xf4f0e8, 0xf0d8c8]),
+        lx - 1.05 + ((n % 2) - 0.5) * 0.3, floor0 + 0.82 + Math.floor(n / 2) * 0.38, zf - 0.04, { cast: false });
+    }
     const steps = Math.max(1, Math.round(floor0 / 0.15));
     for (let i = 0; i < steps; i++) {
       const sh = floor0 * (i + 1) / steps;
@@ -454,6 +596,53 @@ export function buildBlock(ctx, spec) {
         addBin(batch, bxw, bzw, facing);
       }
     }
+  }
+
+  /* ---- the house number on the corner ---- */
+  {
+    const num = spec.number ?? (seed % 47) + 1;
+    const [px, pz] = toW(-L / 2 + 0.7, -D / 2 - 0.03);
+    placeSign(ctx, sheet, houseNumberTex(num), 0.5, 0.4, px, floor0 + 2.4, pz, facing + Math.PI);
+    const [ex, ez] = toW(-L / 2 - 0.03, -D / 2 + 1.2);
+    placeSign(ctx, sheet, houseNumberTex(num), 0.5, 0.4, ex, floor0 + 2.4, ez, facing - Math.PI / 2);
+  }
+
+  /* ---- ground-floor flats turned into shops ---- */
+  // In the 2000s a ground-floor flat on a busy street was worth more as a
+  // shop: the window was cut down into a door, a porch with steps was built
+  // out onto the lawn, and a bilingual fascia went up over a tin canopy.
+  for (const c of shops) {
+    const side = c.side ?? 1;
+    const lx = -L / 2 + c.section * sectionW + (c.bay + 0.5) * bayW;
+    const zw = side * D / 2;
+    const out = (d) => zw + side * d;
+    quads.quad(atlas, [lx, floor0 + 1.15, out(0.02)], faceOf(side), 1.2, 2.3, cellUV(WIN.door[0] + 3 + (c.bay % 2)));
+    // tiled landing at floor level, steps down away from the wall
+    const land = 1.3, pw = 2.4;
+    box(pw, floor0, land, 0xc8bfae, lx, 0, out(land / 2));
+    box(pw + 0.04, 0.03, land + 0.02, 0xa89f90, lx, floor0, out(land / 2), { cast: false });
+    const n = Math.max(2, Math.round(floor0 / 0.16));
+    for (let i = 0; i < n; i++) {
+      box(pw - 0.2, floor0 * (n - i) / (n + 1), 0.32, 0xb8b0a0, lx, 0, out(land + 0.16 + i * 0.32));
+    }
+    // handrails down both sides of the steps
+    for (const sx of [-1, 1]) {
+      const [ax, az] = toW(lx + sx * (pw / 2 - 0.08), out(0.1));
+      const [bx, bz] = toW(lx + sx * (pw / 2 - 0.08), out(land));
+      const [dx, dz] = toW(lx + sx * (pw / 2 - 0.08), out(land + n * 0.32));
+      batch.tube(ax, floor0 + 0.9, az, bx, floor0 + 0.9, bz, 0.025, PAL.metalDark, { seg: 4, cast: false });
+      batch.tube(bx, floor0 + 0.9, bz, dx, 0.9, dz, 0.025, PAL.metalDark, { seg: 4, cast: false });
+      batch.tube(dx, 0, dz, dx, 0.9, dz, 0.025, PAL.metalDark, { seg: 4, cast: false });
+      batch.tube(bx, floor0, bz, bx, floor0 + 0.9, bz, 0.025, PAL.metalDark, { seg: 4, cast: false });
+    }
+    // tin canopy on two brackets, and the fascia above it
+    box(pw + 0.6, 0.05, 1.4, c.roof ?? 0x2f6a9a, lx, floor0 + 2.5, out(0.7), { rx: side * 0.18 });
+    for (const sx of [-1, 1]) box(0.04, 0.04, 1.2, PAL.metalDark, lx + sx * (pw / 2), floor0 + 2.4, out(0.6), { cast: false });
+    const tex = signTex({ w: 512, h: 128, bg: c.bg ?? '#1f4e8c', fg: c.fg ?? '#f2c230', lines: c.lines, sizes: [1, 0.78], family: FONT.sans, stretch: 0.88, seed: seed + c.bay });
+    const [sx, sz] = toW(lx, out(0.05));
+    placeSign(ctx, sheet, tex, 2.8, 0.7, sx, floor0 + 3.05, sz, facing + (side < 0 ? Math.PI : 0));
+    const f = [toW(lx - pw / 2, zw), toW(lx + pw / 2, out(land + n * 0.32))];
+    colliders.box(Math.min(f[0][0], f[1][0]), Math.min(f[0][1], f[1][1]), Math.max(f[0][0], f[1][0]), Math.max(f[0][1], f[1][1]), { top: floor0 + 0.9, tag: 'porch' });
   }
 
   /* ---- gas pipe along the front at first-floor level ---- */

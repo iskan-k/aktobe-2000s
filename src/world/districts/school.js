@@ -85,6 +85,7 @@ export const school = {
     const Y = buildBlock(ctx, {
       sheet, x: X(43.5), z: B.z1 - 10.5, facing: 0, storeys: 5, sections: 5, sectionW: 15, depth: 12,
       wall: 'panelBeige', back: 'balconies', parapet: 'sheet', plinth: 'grey', gasPipe: true, seed: 81,
+      shops: [{ section: 1, bay: 2, lines: ['Ұялы байланыс', 'Сотовая связь'], bg: '#f2c230', fg: '#1f3e9c', roof: 0x1f3e9c }],
     });
     const shopX = Y.x1 + 15;
     const shop = hall(ctx, {
