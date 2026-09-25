@@ -41,6 +41,7 @@ const INK_SHADER = {
     uFadeEnd: { value: 120.0 },
     uStrength: { value: 0.82 },
     uSkyDepth: { value: 700.0 },
+    uFoliageInk: { value: 0.3 },
   },
   vertexShader: VERT,
   fragmentShader: /* glsl */ `
@@ -51,7 +52,7 @@ const INK_SHADER = {
     uniform float uNear, uFar;
     uniform vec3 uInk;
     uniform float uThickness, uSens, uConcave, uConcaveAmount;
-    uniform float uFadeStart, uFadeEnd, uStrength, uSkyDepth;
+    uniform float uFadeStart, uFadeEnd, uStrength, uSkyDepth, uFoliageInk;
     varying vec2 vUv;
 
     float linearDepth( vec2 uv ) {
@@ -79,6 +80,10 @@ const INK_SHADER = {
       edge = max( edge, smoothstep( uConcave, uConcave * 3.4, concave ) * uConcaveAmount );
       edge *= 1.0 - smoothstep( uFadeStart, uFadeEnd, dc );
       edge *= uStrength;
+      // foliage writes alpha 0: a tree keeps its outline, but the leaf
+      // clusters inside the canopy only get a faint line each
+      float leafy = 1.0 - texture2D( tDiffuse, vUv ).a;
+      edge *= mix( 1.0, uFoliageInk, leafy );
 
       // the line keeps some of the surface under it, so it reads as drawn
       // over the colour rather than pasted on

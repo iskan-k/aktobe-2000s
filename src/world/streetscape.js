@@ -1,4 +1,5 @@
 import { addTree } from './props/trees.js';
+import { FOLIAGE_TIME } from './props/foliage.js';
 import { addLamp } from './props/street.js';
 import { buildOverhead } from './overhead.js';
 import { KERB_H, STOPS, stopPlacement, RAIL, inKeepClear } from './plan.js';
@@ -32,6 +33,8 @@ export function buildStreetscape(ctx, streets) {
     colliders.circle(s.x, s.z, trunkR + 0.05, { tag: 'tree' });
   }
   buildOverhead(ctx);
+  // the clock for the leaves' sway, shared by every canopy in town
+  ctx.update((dt) => { FOLIAGE_TIME.value += dt; });
   for (const l of streets.lampSpots) {
     if (nearShelter(l.x, l.z, 4)) continue;
     addLamp(batch, l.x, l.z, l.facing, { y: KERB_H, double: !!l.double, steel: !!l.double, height: l.double ? 10.5 : 9.5 });
