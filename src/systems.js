@@ -3,6 +3,8 @@ import { createTransit } from './traffic/transit.js';
 import { createCar } from './vehicles/drive.js';
 import { createParked } from './vehicles/parked.js';
 import { createMap } from './core/map.js';
+import { createRail } from './rail/train.js';
+import { createFluff } from './world/fluff.js';
 
 /* ------------------------------------------------------------------ *
  * Moving systems: traffic, transit, the railway, the player's car.
@@ -17,4 +19,6 @@ export const SYSTEMS = [
   { name: 'car', create: createCar },
   { name: 'parked', create: createParked },
   { name: 'map', create: createMap },
+  { name: 'rail', create: createRail },
+  { name: 'fluff', create: createFluff },
 ];

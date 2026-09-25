@@ -75,8 +75,8 @@ export function buildSky(scene, radius = 800) {
     m.renderOrder = -9;
     clouds.add(m);
   }
-  const cirMat = flat({ map: cirrusTex(), transparent: true, opacity: 0.7, depthWrite: false, fog: false, cache: false });
-  for (let i = 0; i < 5; i++) {
+  const cirMat = flat({ map: cirrusTex(), transparent: true, opacity: 0.32, depthWrite: false, fog: false, cache: false });
+  for (let i = 0; i < 3; i++) {
     const a = rng.range(0, Math.PI * 2);
     const r = radius * 0.8;
     const m = new THREE.Mesh(new THREE.PlaneGeometry(rng.range(400, 700), 70), cirMat);

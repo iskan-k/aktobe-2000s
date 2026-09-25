@@ -113,12 +113,13 @@ export function addTree(batch, kind, x, z, seed, o = {}) {
     const r = 0.24 * s;
     trunk(batch, x, z, h * 0.62, r, r * 0.45, PAL.barkLight, { whitewash: ww, y0 });
     const base = shade(PAL.poplar, 0, rng), light = shade(PAL.leafLight, 0, rng), dark = PAL.leafDark;
-    const n = 7;
+    // a narrow column, widest a third of the way up, tapering to a point
+    const n = 9;
     for (let i = 0; i < n; i++) {
       const t = i / (n - 1);
-      const cy = y0 + h * (0.28 + t * 0.62);
-      const rad = (1.1 + Math.sin(t * Math.PI) * 0.95) * s;
-      put(blob(rng, x + rng.range(-0.3, 0.3), cy, z + rng.range(-0.3, 0.3), rad, rad * 1.7, rad, base, light, dark));
+      const cy = y0 + h * (0.24 + t * 0.68);
+      const rad = (0.75 + Math.sin(Math.min(1, t * 1.25) * Math.PI) * 0.7 * (1 - t * 0.35)) * s;
+      put(blob(rng, x + rng.range(-0.25, 0.25), cy, z + rng.range(-0.25, 0.25), rad, rad * 2.1, rad, base, light, dark));
     }
     return { r, h };
   }

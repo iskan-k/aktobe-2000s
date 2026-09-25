@@ -41,7 +41,7 @@ await page.evaluate(() => { window.__city.game.input.force = true; });
 for (const st of steps) {
   if (st.eval) {
     const r = await page.evaluate((code) => { try { return JSON.stringify(eval(code)); } catch (e) { return 'ERR ' + e.message; } }, st.eval);
-    if (r !== undefined) console.log('eval:', r?.slice?.(0, 400));
+    if (r !== undefined) console.log('eval:', r?.slice?.(0, 6000));
   }
   if (st.keys) {
     for (const k of st.keys) await page.keyboard.down(k);

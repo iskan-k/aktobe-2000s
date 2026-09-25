@@ -129,6 +129,17 @@ export function createTraffic(game) {
     if (lane.kind !== 'lane' || lane.portalOut || !lane.next.length) return;
     const all = turnOptions(lane);
     let want = null;
+    if (v.route && lane.index > 0) {
+      const group = laneGroup(lane);
+      const kerb = group[0];
+      if (kerb.stops.some((st) => v.route.serves.includes(st.id) && !v.served.has(st.id) && st.s > v.s + 20)) {
+        v.desiredLane = kerb;
+        v.nextConn = lane.next.find((c) => c.turn === 'S') || lane.next[0];
+        v.stopFirst = true;
+        return;
+      }
+    }
+    v.stopFirst = false;
     if (v.route) {
       const legs = v.route.legs;
       const nextLeg = legs[(v.leg + 1) % legs.length];
@@ -210,11 +221,14 @@ export function createTraffic(game) {
 
   function ahead(v) {
     let gap = Infinity, lead = 0;
-    const consider = (g, sp) => { if (g < gap) { gap = g; lead = sp; } };
+    let why = '';
+    let tag = '';
+    const consider = (g, sp) => { if (g < gap) { gap = g; lead = sp; why = tag; } };
     const half = v.len / 2;
 
     for (const u of v.path.vehicles) {
       if (u === v || u.s <= v.s) continue;
+      tag = 'same:' + u.id;
       consider(u.s - u.len / 2 - (v.s + half), u.v);
     }
 
@@ -226,10 +240,13 @@ export function createTraffic(game) {
       // IDM settles s0 short of a standing obstacle, so the stop target is
       // pushed s0 further on: the bus then halts with its centre on the stop
       const stopAt = targetStop(v);
+      tag = 'stop';
       if (stopAt !== null) consider(stopAt - v.s + v.s0 - 0.2, 0);
+      tag = 'blocker';
       for (const b of blockers) {
         if (b.active && b.lane === lane && b.s > v.s + half - 1) consider(b.s - v.s - half, 0);
       }
+      tag = 'line';
       if (v.nextConn && v.cleared !== v.nextConn && dist - half < 45) {
         const commit = (v.v * v.v) / (2 * 4) + 0.5;
         if (canEnter(v, v.nextConn)) {
@@ -249,6 +266,7 @@ export function createTraffic(game) {
     while (path && dist < LOOKAHEAD && hops < 3) {
       for (const u of path.vehicles) {
         if (u === v) continue;
+        tag = 'next:' + u.id;
         consider(dist + u.s - u.len / 2 - half, u.v);
       }
       dist += path.len;
@@ -256,29 +274,37 @@ export function createTraffic(game) {
       hops++;
     }
 
-    // anything physically in front that the path logic did not see:
-    // lane changers, junction crossers, the player
+    // Anything physically in front that the path logic did not see: a
+    // lane changer easing across, or someone inside the junction box on a
+    // crossing path. Opposing and far-off crossing traffic is left to the
+    // junction rules, and two vehicles that block each other break the tie
+    // by id, so nobody waits forever nose to nose.
     const fx = -Math.sin(v.heading), fz = -Math.cos(v.heading);
-    // stuck nose to nose inside a junction for a while: creep through
+    const inBox = v.path.kind === 'connector' || (v.path.len - v.s < v.len / 2 + 2 && v.cleared);
     const ghost = v.path.kind === 'connector' && v.wait > 4;
     for (const u of vehicles) {
       if (ghost) break;
-      if (u === v || u.hidden) continue;
+      if (u === v || u.hidden || u.path === v.path) continue;
       const dx = u.x - v.x, dz = u.z - v.z;
       if (dx * dx + dz * dz > 400) continue;
       const f = dx * fx + dz * fz;
       if (f <= 0) continue;
       const l = Math.abs(dx * -fz + dz * fx);
-      if (l > (v.wid + u.wid) / 2 + 0.2) continue;
+      if (l > (v.wid + u.wid) / 2 + 0.15) continue;
       const hd = Math.abs(wrapAngle(u.heading - v.heading));
-      if (hd > 1.2 && f > 9) continue;
-      consider(f - half - u.len / 2 - 0.5, hd < 1.2 ? u.v * Math.cos(hd) : 0);
+      const uInBox = u.path.kind === 'connector';
+      if (hd > 0.6 && !(inBox && uInBox && f < 9)) continue;
+      if (u.why === 'phys:' + v.id && v.id < u.id) continue;
+      tag = 'phys:' + u.id;
+      consider(f - half - u.len / 2 - 0.5, hd < 0.6 ? u.v * Math.cos(hd) : 0);
     }
     const pl = playerObstacle(v, fx, fz);
+    tag = 'player';
     if (pl) {
       consider(pl.gap, pl.v);
       v.blockedByPlayer = pl.gap < 12;
     } else v.blockedByPlayer = false;
+    v.why = why;
     return { gap, lead };
   }
 
@@ -354,6 +380,10 @@ export function createTraffic(game) {
     // a bus keeps to the kerb until it has served the stop ahead
     if (v.route && targetStop(v) !== null) return;
     const lane = v.path;
+    if (v.route && v.stopFirst && v.desiredLane && v.desiredLane !== lane) {
+      tryLaneChange(v, lane.right, true);
+      return;
+    }
     if (v.desiredLane && v.desiredLane !== lane) {
       const toward = v.desiredLane.index > lane.index ? lane.left : lane.right;
       if (lane.len - v.s > 14) tryLaneChange(v, toward, true);
@@ -438,18 +468,22 @@ export function createTraffic(game) {
   function place(v, dt) {
     v.path.pointAt(Math.min(v.s, v.path.len), _p);
     let x = _p.x, z = _p.z;
-    if (v.lat !== 0 && v.path.kind === 'lane') {
-      const ax = v.path.road.axis === 'x' ? 0 : 1, az = v.path.road.axis === 'x' ? 1 : 0;
-      x += ax * v.lat;
-      z += az * v.lat;
-    }
     let heading = _p.heading;
-    if (dt > 0) {
-      const mx = x - v.x, mz = z - v.z;
-      if (mx * mx + mz * mz > 1e-5) heading = Math.atan2(-mx, -mz);
-      else heading = v.heading;
-      v.yawRate = wrapAngle(heading - v.heading) / dt;
+    if (v.lat !== 0 && v.path.kind === 'lane') {
+      const alongX = v.path.road.axis === 'x';
+      if (alongX) z += v.lat; else x += v.lat;
+      // yaw into the lane change: lateral speed against forward speed
+      if (dt > 0) {
+        const latVel = (v.lat - (v.prevLat ?? v.lat)) / dt;
+        // +lat is +z on an x road, +x on a z road; convert to "left of travel"
+        const fx = -Math.sin(heading), fz = -Math.cos(heading);
+        const lx = alongX ? 0 : 1, lz = alongX ? 1 : 0;
+        const rightDot = lx * -fz + lz * fx;   // + if +lat points to the right
+        heading -= Math.atan2(latVel * rightDot, Math.max(v.v, 1.5)) * 0.9;
+      }
     }
+    v.prevLat = v.lat;
+    if (dt > 0) v.yawRate = wrapAngle(heading - v.heading) / dt;
     v.x = x; v.z = z; v.heading = heading;
   }
 
@@ -463,6 +497,7 @@ export function createTraffic(game) {
     if (v.dwell <= 0 && v.doorT <= 0 && !v.holdDoors) {
       v.state = 'drive';
       v.hailed = null;
+      if (v.replan && v.path.kind === 'lane') { v.replan = false; chooseNext(v); }
     }
   }
 
@@ -470,7 +505,7 @@ export function createTraffic(game) {
     const lane = v.path;
     let st = null;
     if (v.route) st = lane.stops.find((x) => v.route.serves.includes(x.id) && !v.served.has(x.id) && Math.abs(x.s - v.s) < 1.5);
-    if (st) v.served.add(st.id);
+    if (st) { v.served.add(st.id); v.replan = true; }
     const hailHere = v.hailed && Math.abs(v.hailed.s - v.s) < 1.5;
     if (!st && !hailHere) return false;
     v.state = 'dwell';

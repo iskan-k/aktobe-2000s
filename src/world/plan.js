@@ -162,8 +162,11 @@ export const BLOCKS = {
   northOfRail: { x0: BOUNDS.x0, x1: BOUNDS.x1, z0: BOUNDS.z0, z1: RAIL.corridor[0] },
 };
 
-/** Where the walker starts: the avenue's north pavement by the bazaar bus stop. */
-export const SPAWN = { x: 12, z: -9.2, yaw: 1.3, pitch: -0.02 };
+/**
+ * Where the walker starts: the avenue's north pavement at the bazaar bus
+ * stop, looking east along the traffic with the evening sun behind you.
+ */
+export const SPAWN = { x: 29, z: -11.8, yaw: -1.85, pitch: -0.03 };
 
 /**
  * Is (x, z) on a carriageway (including junction boxes and corner
