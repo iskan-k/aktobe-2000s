@@ -224,7 +224,9 @@ function paintTex() {
     ctx.fillStyle = '#ffffff';
     ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'destination-out';
-    for (let i = 0; i < 1600; i++) {
+    // few fine speckles: at grazing angles the mipmaps average them away
+    // and an alpha-tested line breaks up into noise
+    for (let i = 0; i < 380; i++) {
       ctx.globalAlpha = r.range(0.4, 1);
       const s = r.range(1, 5);
       ctx.fillRect(r.range(0, w), r.range(0, h), s, s * r.range(0.5, 2));
@@ -263,7 +265,7 @@ export const SURF = {
   get paint() {
     if (!mats.paint) {
       mats.paint = cel({
-        map: paintTex(), vertexColors: true, alphaTest: 0.5, bands: 3, grime: 0.03, dirt: 0,
+        map: paintTex(), vertexColors: true, alphaTest: 0.38, bands: 3, grime: 0.03, dirt: 0,
         polygonOffset: 2, cache: false,
       });
       mats.paint.userData.tile = TILE.paint;
