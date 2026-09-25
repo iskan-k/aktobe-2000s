@@ -298,15 +298,16 @@ export const square = {
 
     /* ---- the little granite pyramid with a ball (c22) ---- */
     {
-      const g = new THREE.ConeGeometry(1.3, 1.9, 4);
+      // small and pale in c22: pinkish granite with a dark ball on top
+      const g = new THREE.ConeGeometry(0.85, 1.25, 4);
       g.rotateY(Math.PI / 4);
-      g.translate(AXIS, 0.95 + 0.3, 20);
-      batch.box(3.4, 0.3, 3.4, 0x8a3a32, AXIS, Y, 20);
-      batch.add(g, { color: 0x9a4a3e });
-      const ballG = new THREE.SphereGeometry(0.42, 16, 12);
-      ballG.translate(AXIS, 2.55, 20);
+      g.translate(AXIS, 0.62 + 0.28, 20);
+      batch.box(2.3, 0.28, 2.3, 0x9c8074, AXIS, Y, 20);
+      batch.add(g, { color: 0xb49486 });
+      const ballG = new THREE.SphereGeometry(0.3, 16, 12);
+      ballG.translate(AXIS, 1.72, 20);
       batch.add(ballG, { color: 0x3b3a36 });
-      colliders.box(AXIS - 1.7, 18.3, AXIS + 1.7, 21.7, { tag: 'marker' });
+      colliders.box(AXIS - 1.15, 18.85, AXIS + 1.15, 21.15, { tag: 'marker' });
     }
 
     /* ---- light blue lamp masts with the decorative crossbar ---- */

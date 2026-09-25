@@ -98,6 +98,9 @@ export const RAIL = {
  */
 export const KEEP_CLEAR = [
   { id: 'bazaar-gate', x0: 45, x1: 67, z0: -15, z1: -7.6 },
+  // the akimat and the Abulkhair Khan monument face the avenue across an
+  // open forecourt; nothing stands between them and the traffic
+  { id: 'akimat-front', x0: -101, x1: -69, z0: 7.6, z1: 15 },
 ];
 
 /** Is (x, z) inside a keep-clear zone (grown by margin)? */

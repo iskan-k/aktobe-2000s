@@ -4,6 +4,7 @@ import { rngKit } from '../../core/util.js';
 import {
   ROADS, JUNCTIONS, BLOCKS, BOUNDS, RAIL, STOPS, KERB_H, KERB_W,
   halfWidth, onCarriageway, onStreet, stopPlacement, roadById,
+  KEEP_CLEAR as PLAN_KEEP_CLEAR,
 } from '../plan.js';
 import { addBench, addBin } from '../props/street.js';
 import { addShelter, SHELTER_SIZE } from '../props/busstop.js';
@@ -125,11 +126,9 @@ const KIOSKS = [
 /**
  * World rectangles kept clear of anything that stands up: the avenue
  * pavement in front of the bazaar gate (gate at x 56 on the block edge).
- * Same as KEEP_CLEAR in the lead's plan.js, which this branch predates.
+ * Read from KEEP_CLEAR in plan.js, so every placer agrees.
  */
-const KEEP_CLEAR = [
-  { x0: 45, x1: 67, z0: -15, z1: -7.6, what: 'bazaar gate' },
-];
+const KEEP_CLEAR = PLAN_KEEP_CLEAR.map((k) => ({ ...k, what: k.id }));
 
 const MASTS = [[-178, 'zhasa', 'kcell'], [-115, 'halyk', 's2030'], [-55, 'guldene', 'beeline'], [70, 'kkb', 'zhasa'], [150, 's2030', 'bta']];
 const POST_BOARDS = [
