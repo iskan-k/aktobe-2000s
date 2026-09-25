@@ -5,3 +5,4 @@ dist/
 public/audio/*
 !public/audio/README.md
 .DS_Store
+.claude/

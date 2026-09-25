@@ -12,6 +12,8 @@ import { rngKit } from '../../core/util.js';
  *   elm     the small-leaved elm (карагач), the tough steppe tree
  *   maple   the ash-leaved maple (клён), self-seeded everywhere
  *   shrub   lilac and yellow acacia (карагана) hedges
+ *   ball    an elm clipped into a ball, on squares and the avenue
+ *   spruce  blue spruce, for the akimat, the station and the park
  *
  * Canopies are clusters of jittered ellipsoid blobs with radial normals,
  * so the soft cel ramp shades them as rounded masses rather than facets.
@@ -91,7 +93,7 @@ function branches(batch, rng, x, z, y0, y1, reach, color, count) {
 /**
  * Add a tree.
  * @param {import('../../core/batch.js').Batch} batch
- * @param {'poplar'|'black'|'elm'|'maple'|'shrub'|'young'} kind
+ * @param {'poplar'|'black'|'elm'|'maple'|'shrub'|'young'|'ball'|'spruce'} kind
  * @param {number} x
  * @param {number} z
  * @param {number} seed
@@ -171,6 +173,44 @@ export function addTree(batch, kind, x, z, seed, o = {}) {
       put(blob(rng, x + rng.range(-0.4, 0.4), y0 + h * rng.range(0.62, 0.85), z + rng.range(-0.4, 0.4), rad, rad, rad, base, light, dark));
     }
     return { r, h };
+  }
+
+  if (kind === 'ball') {
+    // an elm clipped into a ball, the way the city gardeners kept them on
+    // squares and along the avenue
+    const h = 4.6 * s;
+    const r = 0.14 * s;
+    trunk(batch, x, z, h * 0.62, r, r * 0.8, PAL.bark, { whitewash: ww, y0 });
+    const base = shade(PAL.elm, 0.02, rng), light = PAL.leafLight, dark = PAL.leafDark;
+    const rad = 1.35 * s;
+    put(blob(rng, x, y0 + h - rad * 0.9, z, rad, rad * 0.95, rad, base, light, dark));
+    return { r, h };
+  }
+
+  if (kind === 'spruce') {
+    // blue spruce (голубая ель): stacked tiers, blue-green, for formal spots
+    const h = 9 * s;
+    const r = 0.18 * s;
+    trunk(batch, x, z, h * 0.3, r, r * 0.8, PAL.bark, { whitewash: false, y0 });
+    const tiers = 6;
+    for (let i = 0; i < tiers; i++) {
+      const t = i / tiers;
+      const tr = (2.1 - t * 1.7) * s;
+      const th = h * 0.24;
+      const g = new THREE.ConeGeometry(tr, th, 9, 1, true);
+      g.translate(x, y0 + h * 0.12 + t * h * 0.78 + th / 2, z);
+      g.rotateY(0);
+      const col = new Float32Array(g.attributes.position.count * 3);
+      const p = g.attributes.position;
+      for (let k = 0; k < p.count; k++) {
+        const up = (p.getY(k) - (y0 + h * 0.12 + t * h * 0.78)) / th;
+        _c.set(0x3f5f63).lerp(_c2.set(0x7c9ea0), Math.min(1, up * 0.9 + t * 0.2));
+        col[k * 3] = _c.r; col[k * 3 + 1] = _c.g; col[k * 3 + 2] = _c.b;
+      }
+      g.setAttribute('color', new THREE.BufferAttribute(col, 3));
+      batch.add(g, { color: null, mat: 'foliage' });
+    }
+    return { r: 0.3 * s, h };
   }
 
   // shrub: a low hedge-like mound

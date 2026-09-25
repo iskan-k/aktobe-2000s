@@ -1,12 +1,12 @@
 import * as THREE from 'three';
 import { clamp, damp } from '../core/util.js';
 import { pushCircle } from '../core/physics.js';
-import { STOPS } from '../world/plan.js';
+import { STOPS, FARES } from '../world/plan.js';
 
 /* ------------------------------------------------------------------ *
  * Riding public transport.
  *
- *   Buses (№4 Ikarus, №17 PAZ) stop only at their stops. Stand at the
+ *   Buses (№4, №17 PAZ) and trolleybus №1 stop only at their stops. Stand at the
  *   shelter; when one pulls in and opens its doors, look at it and press
  *   E to board. The fare goes in the driver's tray.
  *
@@ -18,8 +18,6 @@ import { STOPS } from '../world/plan.js';
  * While riding, the camera sits in a seat (or stands at a pole) and the
  * mouse looks around. The next stop is announced on the phone screen.
  * ------------------------------------------------------------------ */
-
-const FARE = { bus: 40, paz: 40, marshrutka: 50 };
 
 export function createTransit(game) {
   const traffic = game.traffic;
@@ -37,8 +35,13 @@ export function createTransit(game) {
     boardedAt: 0,
   };
 
-  const fareOf = (v) => FARE[v.type] ?? FARE[v.kind] ?? 40;
-  const nameOf = (v) => (v.kind === 'marshrutka' ? `marshrutka №${v.route.label}` : `bus №${v.route.label}`);
+  const fareOf = (v) => FARES[v.route?.kind] ?? FARES[v.kind] ?? 30;
+  const nameOf = (v) => {
+    const k = v.route?.kind;
+    if (k === 'marshrutka') return `marshrutka №${v.route.label}`;
+    if (k === 'trolleybus') return `trolleybus №${v.route.label}`;
+    return `bus №${v.route.label}`;
+  };
 
   function playerNear(v, r) {
     const p = game.player.pos;
@@ -121,7 +124,8 @@ export function createTransit(game) {
     v.holdDoors = false;
     game.setController(controller);
     const next = nextStopName(v);
-    game.hud.sms(`${v.kind === 'marshrutka' ? 'Маршрутка' : 'Автобус'} №${v.route.label}`,
+    const title = { marshrutka: 'Маршрутка', trolleybus: 'Троллейбус' }[v.route.kind] || 'Автобус';
+    game.hud.sms(`${title} №${v.route.label}`,
       `${v.route.via}. ${next ? `Следующая: ${next}.` : ''} E: ${v.kind === 'marshrutka' ? '«Остановите здесь!»' : 'выйти на остановке'}`);
     game.audio.play('sms');
   }

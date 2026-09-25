@@ -223,6 +223,24 @@ export const STOPS = [
 ];
 
 export const ROUTES = [
+  // trolleybus route 1 runs the length of the avenue under the wires, one
+  // vehicle each way; they turn back beyond the edge of the map
+  {
+    id: '1w', kind: 'trolleybus', label: '1', color: 0xede9da,
+    via: 'Студенческая – Парк им. Пушкина',
+    legs: [{ road: 'ave', dir: -1 }],
+    entry: { road: 'ave', dir: -1 },
+    serves: ['rynok-n', 'akimat-n'],
+    count: 2,
+  },
+  {
+    id: '1e', kind: 'trolleybus', label: '1', color: 0xede9da,
+    via: 'Парк им. Пушкина – Студенческая',
+    legs: [{ road: 'ave', dir: 1 }],
+    entry: { road: 'ave', dir: 1 },
+    serves: ['akimat-s', 'rynok-s'],
+    count: 2,
+  },
   {
     id: '4', kind: 'bus', label: '4', color: 0xd9a63a,
     via: 'Вокзал – Акимат – Рынок',
@@ -256,6 +274,12 @@ export const ROUTES = [
     count: 3,
   },
 ];
+
+/** Fares in tenge, June 2007. */
+export const FARES = { bus: 30, paz: 30, trolleybus: 25, marshrutka: 35 };
+
+/** The trolleybus contact wires: height, and the kerb lanes they hang over. */
+export const TROLLEY = { road: 'ave', wireY: 5.8, wireGap: 0.6, spacing: 30, reach: 250 };
 
 /** World position of a stop's kerb point and its shelter spot on the pavement. */
 export function stopPlacement(stop) {

@@ -233,6 +233,39 @@ defineLoop('engine', (ac, out, { kind = 'petrol' }) => {
   };
 });
 
+/**
+ * Trolleybus: no engine, just the traction motor's whine rising with
+ * speed, the hum of the converter and a tick of relays.
+ */
+defineLoop('electric', (ac, out) => {
+  const whine = ac.createOscillator();
+  whine.type = 'sine';
+  const hum = ac.createOscillator();
+  hum.type = 'triangle';
+  hum.frequency.value = 100;
+  const gw = ac.createGain();
+  gw.gain.value = 0.0001;
+  const gh = ac.createGain();
+  gh.gain.value = 0.0001;
+  whine.connect(gw).connect(out);
+  hum.connect(gh).connect(out);
+  whine.start(); hum.start();
+  return {
+    set({ rate = 1, load = 0.3, volume = 1 }) {
+      const t = ac.currentTime;
+      whine.frequency.setTargetAtTime(180 + rate * 260, t, 0.1);
+      gw.gain.setTargetAtTime(Math.max(0.0001, volume * 0.035 * (0.3 + load)), t, 0.1);
+      gh.gain.setTargetAtTime(Math.max(0.0001, volume * 0.04), t, 0.1);
+    },
+    stop() {
+      const t = ac.currentTime;
+      gw.gain.setTargetAtTime(0.0001, t, 0.1);
+      gh.gain.setTargetAtTime(0.0001, t, 0.1);
+      setTimeout(() => { whine.stop(); hum.stop(); }, 500);
+    },
+  };
+});
+
 /** Filtered noise bed, for wind, tyres on asphalt and a far-off town. */
 defineLoop('noise', (ac, out, { freq = 400, q = 0.5, type = 'lowpass' }) => {
   const n = noiseSrc(ac, true);

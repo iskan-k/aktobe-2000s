@@ -240,3 +240,58 @@ export function noiseTex(size = 256, seed = 3, scale = 1) {
 export function signPlane(w, h) {
   return new THREE.PlaneGeometry(w, h);
 }
+
+/**
+ * The flag of Kazakhstan: sky-blue field, a gold sun of 32 rays, a
+ * steppe eagle beneath it, and the gold "koshkar muiz" ornament down the
+ * hoist. 2:1. Drawn simply enough to read at flagpole distance.
+ */
+export function flagTex() {
+  return cached('flag-kz', () => canvasTex(512, 256, (ctx, w, h) => {
+    const blue = '#00afca', gold = '#fec50c';
+    ctx.fillStyle = blue;
+    ctx.fillRect(0, 0, w, h);
+    const cx = w * 0.56, cy = h * 0.42, r = h * 0.15;
+    ctx.fillStyle = gold;
+    // rays
+    for (let i = 0; i < 32; i++) {
+      const a = (i / 32) * Math.PI * 2;
+      const a0 = a - 0.05, a1 = a + 0.05;
+      ctx.beginPath();
+      ctx.moveTo(cx + Math.cos(a0) * r * 1.15, cy + Math.sin(a0) * r * 1.15);
+      ctx.lineTo(cx + Math.cos(a) * r * 1.75, cy + Math.sin(a) * r * 1.75);
+      ctx.lineTo(cx + Math.cos(a1) * r * 1.15, cy + Math.sin(a1) * r * 1.15);
+      ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    ctx.fill();
+    // eagle: spread wings in a shallow arc under the sun
+    ctx.beginPath();
+    const ey = cy + r * 2.05;
+    ctx.moveTo(cx - r * 2.6, ey - r * 0.55);
+    ctx.quadraticCurveTo(cx - r * 1.2, ey - r * 0.1, cx - r * 0.25, ey + r * 0.05);
+    ctx.lineTo(cx, ey + r * 0.55);
+    ctx.lineTo(cx + r * 0.25, ey + r * 0.05);
+    ctx.quadraticCurveTo(cx + r * 1.2, ey - r * 0.1, cx + r * 2.6, ey - r * 0.55);
+    ctx.quadraticCurveTo(cx + r * 1.3, ey + r * 0.45, cx + r * 0.2, ey + r * 0.35);
+    ctx.lineTo(cx, ey + r * 0.8);
+    ctx.lineTo(cx - r * 0.2, ey + r * 0.35);
+    ctx.quadraticCurveTo(cx - r * 1.3, ey + r * 0.45, cx - r * 2.6, ey - r * 0.55);
+    ctx.fill();
+    // hoist ornament: a column of paired curls
+    const ox = w * 0.07, step = h / 8;
+    ctx.strokeStyle = gold;
+    ctx.lineWidth = w * 0.012;
+    for (let i = 0; i < 8; i++) {
+      const y = step * (i + 0.5);
+      ctx.beginPath();
+      ctx.arc(ox - step * 0.22, y, step * 0.2, -Math.PI * 0.5, Math.PI * 0.9);
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(ox + step * 0.22, y, step * 0.2, Math.PI * 0.1, Math.PI * 1.5);
+      ctx.stroke();
+      ctx.fillRect(ox - w * 0.004, y - step * 0.5, w * 0.008, step);
+    }
+  }));
+}

@@ -216,7 +216,8 @@ function kerbRun(ctx, r, k, s0, s1) {
   const { batch } = ctx;
   const [x0, z0, x1, z1] = k;
   const H = KERB_H + 0.025;
-  const striped = r.major;
+  // plain grey concrete, as in every 2007 photo; stripes are for poles
+  const striped = false;
   if (!striped) {
     for (const q of splitRect(x0, z0, x1, z1, 40)) {
       batch.span(q[0], ASPHALT_Y - 0.02, q[1], q[2], H, q[3], PAL.kerb, { cast: false });

@@ -657,7 +657,8 @@ export function createTraffic(game) {
         .sort((a, b) => a[1] - b[1]).slice(0, ENGINE_VOICES).map(([v]) => v);
       for (const v of vehicles) {
         const want = near.includes(v);
-        if (want && !v.engine) v.engine = game.audio.loop('engine', { kind: v.model.engine, pos: { x: v.x, y: 0.8, z: v.z }, volume: v.kind === 'car' ? 0.55 : 0.9 });
+        const voice = v.model.engine === 'electric' ? 'electric' : 'engine';
+        if (want && !v.engine) v.engine = game.audio.loop(voice, { kind: v.model.engine, pos: { x: v.x, y: 0.8, z: v.z }, volume: v.kind === 'car' ? 0.55 : 0.9 });
         if (!want && v.engine) { v.engine.stop(); v.engine = null; }
       }
     }

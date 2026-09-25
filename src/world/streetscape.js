@@ -1,5 +1,6 @@
 import { addTree } from './props/trees.js';
 import { addLamp } from './props/street.js';
+import { buildOverhead } from './overhead.js';
 import { KERB_H, STOPS, stopPlacement, RAIL } from './plan.js';
 
 /* ------------------------------------------------------------------ *
@@ -24,14 +25,15 @@ export function buildStreetscape(ctx, streets) {
     // leave the occasional gap: a tree that died and was never replaced
     if (r.chance(0.08)) continue;
     const kind = s.major
-      ? (i % 5 === 0 ? 'elm' : 'poplar')
+      ? (i % 6 === 0 ? 'ball' : i % 5 === 0 ? 'elm' : 'poplar')
       : r.weighted([['elm', 5], ['maple', 3], ['poplar', 1], ['young', 1]]);
     const { r: trunkR } = addTree(batch, kind, s.x, s.z, 1000 + i, { y: KERB_H });
     colliders.circle(s.x, s.z, trunkR + 0.05, { tag: 'tree' });
   }
+  buildOverhead(ctx);
   for (const l of streets.lampSpots) {
     if (nearShelter(l.x, l.z, 4)) continue;
-    addLamp(batch, l.x, l.z, l.facing, { y: KERB_H, double: !!l.double, height: l.double ? 10.5 : 9.5 });
+    addLamp(batch, l.x, l.z, l.facing, { y: KERB_H, double: !!l.double, steel: !!l.double, height: l.double ? 10.5 : 9.5 });
     colliders.circle(l.x, l.z, 0.2, { tag: 'lamp' });
   }
 }

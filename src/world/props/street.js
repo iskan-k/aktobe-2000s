@@ -1,4 +1,3 @@
-import * as THREE from 'three';
 import { PAL } from '../../core/palette.js';
 import { rotXZ } from '../../core/util.js';
 
@@ -19,16 +18,19 @@ function at(ox, oz, lx, lz, yaw) {
  * reaching out over the road and a "cobra head" luminaire.
  * `facing` is the direction the arm reaches.
  */
-export function addLamp(batch, x, z, facing, { y = 0, height = 9.5, double = false } = {}) {
-  batch.cyl(0.16, height, PAL.concrete, x, y, z, { rTop: 0.1, seg: 8 });
-  batch.cyl(0.2, 0.5, PAL.concreteDark, x, y, z, { seg: 8 });
+export function addLamp(batch, x, z, facing, { y = 0, height = 9.5, double = false, steel = false } = {}) {
+  // concrete on side streets; white-painted steel on the avenue
+  const pole = steel ? 0xe4e2dc : PAL.concrete;
+  batch.cyl(steel ? 0.12 : 0.16, height, pole, x, y, z, { rTop: steel ? 0.07 : 0.1, seg: 8 });
+  batch.cyl(0.2, 0.5, steel ? 0xcfcdc6 : PAL.concreteDark, x, y, z, { seg: 8 });
   const arms = double ? [facing, facing + Math.PI] : [facing];
   for (const f of arms) {
     const dx = -Math.sin(f), dz = -Math.cos(f);
     const top = y + height - 0.3;
     const reach = 1.9;
-    batch.tube(x, top - 0.6, z, x + dx * reach * 0.6, top + 0.25, z + dz * reach * 0.6, 0.045, PAL.metalGrey);
-    batch.tube(x + dx * reach * 0.6, top + 0.25, z + dz * reach * 0.6, x + dx * reach, top + 0.3, z + dz * reach, 0.045, PAL.metalGrey);
+    const arm = steel ? pole : PAL.metalGrey;
+    batch.tube(x, top - 0.6, z, x + dx * reach * 0.6, top + 0.25, z + dz * reach * 0.6, 0.045, arm);
+    batch.tube(x + dx * reach * 0.6, top + 0.25, z + dz * reach * 0.6, x + dx * reach, top + 0.3, z + dz * reach, 0.045, arm);
     // the cobra head, slightly nose-down
     const hx = x + dx * (reach + 0.35), hz = z + dz * (reach + 0.35);
     batch.box(0.34, 0.16, 0.8, PAL.metalGrey, hx, top + 0.18, hz, { ry: f, rx: 0.08 });
@@ -114,4 +116,3 @@ export function addWires(batch, points, { sag = 0.45, r = 0.012, color = 0x2e2c2
 }
 
 export const STREET_Y = 0.15;
-export { THREE };
