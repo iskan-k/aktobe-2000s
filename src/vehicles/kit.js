@@ -531,6 +531,7 @@ export function wheelRig(group, { r, w, track, zFront, zRear = [], rim, hub, sty
     const pivot = new THREE.Group();
     pivot.position.set(s * track / 2, r, zFront);
     const m = new THREE.Mesh(wheelGeometry(r, w, { rim, hub, style, side: s }), VMAT.body);
+    m.userData.wheel = { r, w, rim, style: style || 'cap', side: s, pair: 0 };
     m.castShadow = true;
     pivot.add(m);
     group.add(pivot);
@@ -539,6 +540,7 @@ export function wheelRig(group, { r, w, track, zFront, zRear = [], rim, hub, sty
   }
   for (const z of rears) {
     const axle = new THREE.Mesh(wheelGeometry(r, dual ? w * 1.9 : w, { rim, hub, style, pair: track / 2 }), VMAT.body);
+    axle.userData.wheel = { r, w: dual ? w * 1.9 : w, rim, style: style || 'cap', side: 1, pair: track / 2 };
     axle.position.set(0, r, z);
     axle.castShadow = true;
     group.add(axle);

@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { buildNetwork, findLane } from './network.js';
 import { buildSignals } from './signals.js';
 import { buildVehicle, randomType, ROUTE_TYPES, TYPES } from '../vehicles/catalog.js';
+import { wheelGeometry } from '../vehicles/kit.js';
 import { ROUTES, STOPS, roadById } from '../world/plan.js';
 import { rngKit, clamp, damp, wrapAngle } from '../core/util.js';
 
@@ -643,6 +644,62 @@ export function createTraffic(game) {
     }
   }
 
+  /* ------------------------------------------------------------ wheels */
+
+  /* Every traffic wheel is drawn through a few instanced meshes: one unit
+   * wheel per style and side (radius 1, width 1), scaled per instance,
+   * with the rim colour as the instance colour. The wheel objects stay in
+   * each model and keep spinning and steering; only their drawing moves
+   * here, which turns ~190 small draw calls into about six. Wheels without
+   * rig data (a model that builds its own) are left alone. */
+  const wheelSets = new Map();
+  const _off = new THREE.Matrix4();
+  const _scl = new THREE.Matrix4();
+  const _col = new THREE.Color();
+  function setFor(style, side, material) {
+    const key = `${style}|${side}`;
+    if (!wheelSets.has(key)) {
+      wheelSets.set(key, { geometry: wheelGeometry(1, 1, { rim: 0xffffff, hub: 0xffffff, style, side }), material, list: [] });
+    }
+    return wheelSets.get(key);
+  }
+  for (const v of vehicles) {
+    for (const w of v.model.wheels) {
+      const d = w.isMesh && w.userData.wheel;
+      if (!d) continue;
+      const sides = d.pair ? [[1, d.pair], [-1, -d.pair]] : [[d.side, 0]];
+      for (const [side, x] of sides) {
+        const off = new THREE.Matrix4().makeTranslation(x, 0, 0).multiply(_scl.makeScale(d.w, d.r, d.r));
+        setFor(d.style, side, w.material).list.push({ v, w, off, rim: d.rim ?? 0xb9b7b0 });
+      }
+      w.visible = false;
+    }
+  }
+  const HIDE = new THREE.Matrix4().makeScale(0, 0, 0);
+  for (const set of wheelSets.values()) {
+    const im = new THREE.InstancedMesh(set.geometry, set.material, set.list.length);
+    im.name = 'wheels';
+    im.castShadow = true;
+    im.receiveShadow = true;
+    im.frustumCulled = false;
+    set.list.forEach((e, i) => im.setColorAt(i, _col.set(e.rim)));
+    set.mesh = im;
+    root.add(im);
+  }
+  let frameNo = 0;
+  function syncWheels() {
+    for (const set of wheelSets.values()) {
+      const im = set.mesh;
+      for (let i = 0; i < set.list.length; i++) {
+        const { v, w, off } = set.list[i];
+        if (v.hidden || !v.model.group.visible) { im.setMatrixAt(i, HIDE); continue; }
+        if (v._wheelFrame !== frameNo) { v.model.group.updateMatrixWorld(true); v._wheelFrame = frameNo; }
+        im.setMatrixAt(i, _off.multiplyMatrices(w.matrixWorld, off));
+      }
+      im.instanceMatrix.needsUpdate = true;
+    }
+  }
+
   /* ------------------------------------------------------------ sound */
 
   let voiceT = 0;
@@ -707,6 +764,8 @@ export function createTraffic(game) {
         const d2 = (v.x - cam.x) ** 2 + (v.z - cam.z) ** 2;
         v.model.group.visible = d2 < 420 * 420;
       }
+      frameNo++;
+      syncWheels();
     },
   };
   return api;

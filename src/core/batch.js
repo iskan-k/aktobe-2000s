@@ -80,7 +80,7 @@ export class Batch {
    * @param {number} [o.cell=48]  ground cell size used to split merged meshes
    * @param {string} [o.name]
    */
-  constructor({ cell = 64, name = 'batch' } = {}) {
+  constructor({ cell = 128, name = 'batch' } = {}) {
     this.cell = cell;
     this.name = name;
     this.groups = new Map();
