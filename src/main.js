@@ -7,7 +7,7 @@ import { Player } from './core/player.js';
 import { createHud } from './core/hud.js';
 import { createAudio } from './core/audio.js';
 import { buildWorld } from './world/index.js';
-import { SPAWN } from './world/plan.js';
+import { SPAWN, onCarriageway } from './world/plan.js';
 import { SYSTEMS } from './systems.js';
 
 /* ------------------------------------------------------------------ *
@@ -109,7 +109,11 @@ game.world = world;
 const player = new Player(camera, world, input);
 game.player = player;
 player.setSpawn(SPAWN.x, SPAWN.z, SPAWN.yaw, SPAWN.pitch);
-player.onStep = (speed) => audio.play('step', { volume: Math.min(1, speed / 5) * 0.5 });
+player.onStep = (speed) => {
+  const p = player.pos;
+  const hard = p.y > 0.05 || onCarriageway(p.x, p.z);
+  audio.play('step', { volume: Math.min(1, speed / 5) * 0.5, soft: !hard });
+};
 
 /* Systems: traffic, transit, the train, the player's car. Each is
  * { name, create(game) -> { update(dt) } } and may be absent while the
@@ -133,7 +137,18 @@ hud.onStart = () => {
   input.lock();
 };
 hud.onVolume = (v) => audio.setVolume(v);
-input.onLockChange = (locked) => hud.setLocked(locked);
+let welcomed = false;
+input.onLockChange = (locked) => {
+  hud.setLocked(locked);
+  if (locked && !welcomed) {
+    welcomed = true;
+    // the first thing every phone did when you arrived in a new town
+    setTimeout(() => {
+      hud.sms("K'Cell", 'Ақтөбеге қош келдіңіз! Добро пожаловать в Актобе. Баланс: 1500 тг');
+      audio.play('sms');
+    }, 2500);
+  }
+};
 canvas.addEventListener('click', () => {
   audio.start();
   if (!input.locked) input.lock();
@@ -201,6 +216,33 @@ let freeCam = null;   // dev: a fixed camera for screenshots
 let frames = 0, fpsAcc = 0, fps = 0;
 const showStats = params.has('stats');
 
+/* Resolution follows the frame rate: if the machine cannot hold ~50 fps
+ * the internal render scale steps down (never below 0.6), and it steps
+ * back up when there is headroom. Off in dev mode, so screenshots are
+ * always at full quality. */
+const AUTO_Q = !DEV && !params.has('fixed');
+const q = { acc: 0, frames: 0, calm: 0 };
+function autoQuality(rawDt) {
+  if (!AUTO_Q) return;
+  q.acc += rawDt;
+  q.frames++;
+  if (q.acc < 2) return;
+  const avg = q.frames / q.acc;
+  q.acc = 0; q.frames = 0;
+  if (avg < 48 && pipeline.quality > 0.6) {
+    pipeline.quality = Math.max(0.6, pipeline.quality - 0.1);
+    resize();
+    q.calm = 0;
+  } else if (avg > 58) {
+    q.calm++;
+    if (q.calm >= 3 && pipeline.quality < 1) {
+      pipeline.quality = Math.min(1, pipeline.quality + 0.1);
+      resize();
+      q.calm = 0;
+    }
+  } else q.calm = 0;
+}
+
 function step(dt) {
   game.time += dt;
   if (!freeCam) {
@@ -214,7 +256,9 @@ function step(dt) {
 
 function frame() {
   timer.update();
-  const dt = Math.min(timer.getDelta(), 1 / 20);
+  const rawDt = timer.getDelta();
+  const dt = Math.min(rawDt, 1 / 20);
+  if (!document.hidden) autoQuality(rawDt);
   step(dt);
   if (freeCam) {
     camera.position.set(freeCam.x, freeCam.y, freeCam.z);

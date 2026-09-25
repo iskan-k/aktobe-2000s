@@ -142,8 +142,11 @@ export class Batch {
 
     g.computeBoundingBox();
     g.boundingBox.getCenter(_c);
-    const cx = Math.floor(_c.x / this.cell);
-    const cz = Math.floor(_c.z / this.cell);
+    // flat ground surfaces merge over bigger cells: culling them finely
+    // buys little and costs draw calls
+    const cell = material.userData.batchCell || this.cell;
+    const cx = Math.floor(_c.x / cell);
+    const cz = Math.floor(_c.z / cell);
     const key = `${cx},${cz}|${matId(material)}|${cast ? 1 : 0}${receive ? 1 : 0}`;
     let grp = this.groups.get(key);
     if (!grp) {

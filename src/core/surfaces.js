@@ -246,6 +246,7 @@ function surfMat(key, texFn, o = {}) {
   if (!mats[key]) {
     mats[key] = cel({ map: texFn(), bands: 3, grime: o.grime ?? 0.05, dirt: 0, cache: false, ...o });
     mats[key].userData.tile = TILE[key];
+    mats[key].userData.batchCell = 160;
   }
   return mats[key];
 }
@@ -266,6 +267,7 @@ export const SURF = {
         polygonOffset: 2, cache: false,
       });
       mats.paint.userData.tile = TILE.paint;
+      mats.paint.userData.batchCell = 160;
     }
     return mats.paint;
   },

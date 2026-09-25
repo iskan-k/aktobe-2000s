@@ -45,15 +45,16 @@ function env(ac, g, t0, a, peak, d) {
 
 /* ---------------- built-in voices ---------------- */
 
-defineVoice('step', (ac, out, { volume = 0.5 }) => {
+defineVoice('step', (ac, out, { volume = 0.5, soft = false }) => {
   const t = ac.currentTime;
   const s = noiseSrc(ac);
   const f = ac.createBiquadFilter();
-  f.type = 'bandpass';
-  f.frequency.value = 900 + Math.random() * 500;
-  f.Q.value = 0.9;
+  // asphalt scuffs bright and short; earth and grass thud and rustle
+  f.type = soft ? 'lowpass' : 'bandpass';
+  f.frequency.value = soft ? 420 + Math.random() * 200 : 900 + Math.random() * 500;
+  f.Q.value = soft ? 0.5 : 0.9;
   const g = ac.createGain();
-  env(ac, g, t, 0.005, 0.25 * volume, 0.09);
+  env(ac, g, t, soft ? 0.012 : 0.005, (soft ? 0.32 : 0.25) * volume, soft ? 0.13 : 0.09);
   s.connect(f).connect(g).connect(out);
   s.start(t, Math.random());
   s.stop(t + 0.15);

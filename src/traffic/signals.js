@@ -1,7 +1,8 @@
 import * as THREE from 'three';
 import { PAL } from '../core/palette.js';
 import { cel } from '../core/toon.js';
-import { KERB_H } from '../world/plan.js';
+import { KERB_H, halfWidth } from '../world/plan.js';
+import { Batch } from '../core/batch.js';
 
 /* ------------------------------------------------------------------ *
  * Traffic lights at the signalled junctions.
@@ -35,8 +36,11 @@ const CYCLE = PHASES.reduce((s, p) => s + p[2], 0);
 const LAMP_ON = { R: new THREE.Color(0xff3b2a), Y: new THREE.Color(0xffb52a), G: new THREE.Color(0x3dff9a) };
 const LAMP_OFF = { R: new THREE.Color(0x3a1714), Y: new THREE.Color(0x3a2a10), G: new THREE.Color(0x0f2d20) };
 
+/** Placeholder for a lens: the mesh is tagged and later becomes an instance. */
 function lampMat() {
-  return new THREE.MeshBasicMaterial({ color: 0x222222 });
+  const m = new THREE.MeshBasicMaterial({ color: 0x222222 });
+  m.userData.lens = true;
+  return m;
 }
 
 /** Build one signal head on a pole; returns the lamp materials. */
@@ -99,6 +103,76 @@ function signalPole(root, x, z, yaw, pedYaw) {
   return { lamps, ped: pl };
 }
 
+/** A bare three-lamp head, lens toward local -z, hanging from its top. */
+function hangingHead(parent, x, y, z, yaw) {
+  const head = new THREE.Group();
+  head.position.set(x, y, z);
+  head.rotation.y = yaw;
+  parent.add(head);
+  const body = cel({ color: PAL.metalDark });
+  const box = new THREE.Mesh(new THREE.BoxGeometry(0.34, 0.98, 0.26), body);
+  box.position.y = -0.62;
+  box.castShadow = true;
+  head.add(box);
+  const hanger = new THREE.Mesh(new THREE.BoxGeometry(0.06, 0.14, 0.06), body);
+  hanger.position.y = -0.07;
+  head.add(hanger);
+  const lamps = {};
+  ['R', 'Y', 'G'].forEach((k, i) => {
+    const m = lampMat();
+    const lens = new THREE.Mesh(new THREE.CircleGeometry(0.11, 16), m);
+    lens.position.set(0, -0.32 - i * 0.3, -0.135);
+    lens.rotation.y = Math.PI;
+    head.add(lens);
+    lamps[k] = m;
+  });
+  const plate = new THREE.Mesh(new THREE.BoxGeometry(0.56, 1.22, 0.02), cel({ color: 0x1d1f21 }));
+  plate.position.set(0, -0.62, 0.14);
+  head.add(plate);
+  return lamps;
+}
+
+/**
+ * White box-truss gantry right across the avenue at an approach's stop
+ * line, as at the big Aktobe junctions, with a head over each lane of
+ * the approaching direction. Returns the lamp sets.
+ */
+function gantry(root, j, arm) {
+  const r = j.rx;
+  const hw = halfWidth(r);
+  const sgn = arm === 'W' ? -1 : 1;
+  const x = j.x + sgn * (j.hx + 5.9);
+  const z0 = r.c - hw - 0.7, z1 = r.c + hw + 0.7;
+  const H = 6.4;
+  const white = 0xe9e7e0;
+  const b = new Batch({ cell: 1e6, name: 'gantry' });
+  for (const z of [z0, z1]) {
+    b.cyl(0.2, 0.35, 0x3b3a39, x, KERB_H, z, { seg: 10 });
+    b.cyl(0.16, H + 0.4, white, x, KERB_H, z, { seg: 10 });
+  }
+  // box truss: four chords and zig-zag webs on the two long faces
+  const ty = KERB_H + H, d = 0.5;
+  for (const [dy, dx] of [[0, -d / 2], [0, d / 2], [d, -d / 2], [d, d / 2]]) {
+    b.tube(x + dx, ty + dy, z0, x + dx, ty + dy, z1, 0.035, white, { seg: 5 });
+  }
+  const n = Math.round((z1 - z0) / 0.9);
+  for (let i = 0; i < n; i++) {
+    const za = z0 + ((z1 - z0) * i) / n, zb = z0 + ((z1 - z0) * (i + 1)) / n;
+    for (const dx of [-d / 2, d / 2]) b.tube(x + dx, ty + (i % 2 ? d : 0), za, x + dx, ty + (i % 2 ? 0 : d), zb, 0.02, white, { seg: 4 });
+    b.tube(x - d / 2, ty + d, za, x + d / 2, ty + d, za, 0.018, white, { seg: 4 });
+  }
+  b.flush(root);
+  // heads over the approaching lanes; traffic from W drives east on the south half
+  const heads = [];
+  const yaw = arm === 'W' ? Math.PI / 2 : -Math.PI / 2;
+  const across = arm === 'W' ? 1 : -1;
+  for (let i = 0; i < r.lanes; i++) {
+    const zc = r.c + across * (hw - (i + 0.5) * r.laneW);
+    heads.push(hangingHead(root, x, ty, zc, yaw));
+  }
+  return heads;
+}
+
 export function buildSignals(net, root) {
   const junctions = new Map();
   const signalled = new Set(net.connectors.filter((c) => c.junction.signal).map((c) => c.junction));
@@ -119,9 +193,47 @@ export function buildSignals(net, root) {
       const c = corners[arm];
       const h = signalPole(root, c.x, c.z, c.yaw, c.ped);
       heads.push({ arm, ...h });
+      if ((arm === 'W' || arm === 'E') && j.rx.major) {
+        for (const lamps of gantry(root, j, arm)) heads.push({ arm, lamps, ped: null });
+      }
     }
     junctions.set(j, { j, heads, t: (j.x * 0.37) % CYCLE });
   }
+
+  /* Bake: static parts into one batch, every lens into one of two
+   * instanced meshes whose per-instance colour the update loop sets. */
+  root.updateMatrixWorld(true);
+  const staticBatch = new Batch({ cell: 1e6, name: 'signals' });
+  const circles = [], plates = [];
+  const lensSlot = new Map();   // material -> { mesh, index }
+  const drop = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.userData.baked || o.isInstancedMesh) return;
+    if (o.name === 'gantry' || o.name === 'signals') return;
+    if (o.material.userData.lens) {
+      (o.geometry.type === 'CircleGeometry' ? circles : plates).push(o);
+    } else {
+      staticBatch.add(o.geometry, { color: null, matrix: o.matrixWorld, mat: o.material, cast: o.castShadow });
+    }
+    drop.push(o);
+  });
+  for (const o of drop) o.parent.remove(o);
+  staticBatch.flush(root);
+  for (const [list, geo] of [[circles, new THREE.CircleGeometry(0.11, 16)], [plates, new THREE.PlaneGeometry(0.2, 0.22)]]) {
+    if (!list.length) continue;
+    const im = new THREE.InstancedMesh(geo, new THREE.MeshBasicMaterial({ color: 0xffffff }), list.length);
+    list.forEach((o, i) => {
+      im.setMatrixAt(i, o.matrixWorld);
+      im.setColorAt(i, LAMP_OFF.R);
+      lensSlot.set(o.material, { mesh: im, index: i });
+    });
+    im.frustumCulled = false;
+    root.add(im);
+  }
+  const setLamp = (mat, color) => {
+    const slot = lensSlot.get(mat);
+    if (slot) { slot.mesh.setColorAt(slot.index, color); slot.mesh.instanceColor.needsUpdate = true; }
+  };
 
   function phaseOf(state) {
     let t = state.t % CYCLE;
@@ -156,14 +268,15 @@ export function buildSignals(net, root) {
           const r = v === 'R' || v === 'RY';
           const y = v === 'Y' || v === 'RY';
           const gr = v === 'G' || (v === 'g' && on);
-          h.lamps.R.color.copy(r ? LAMP_ON.R : LAMP_OFF.R);
-          h.lamps.Y.color.copy(y ? LAMP_ON.Y : LAMP_OFF.Y);
-          h.lamps.G.color.copy(gr ? LAMP_ON.G : LAMP_OFF.G);
+          setLamp(h.lamps.R, r ? LAMP_ON.R : LAMP_OFF.R);
+          setLamp(h.lamps.Y, y ? LAMP_ON.Y : LAMP_OFF.Y);
+          setLamp(h.lamps.G, gr ? LAMP_ON.G : LAMP_OFF.G);
           // the pedestrian head faces people crossing this same arm, so
           // they may walk exactly when this arm's traffic has plain red
+          if (!h.ped) continue;
           const walk = v === 'R';
-          h.ped.R.color.copy(walk ? LAMP_OFF.R : LAMP_ON.R);
-          h.ped.G.color.copy(walk ? LAMP_ON.G : LAMP_OFF.G);
+          setLamp(h.ped.R, walk ? LAMP_OFF.R : LAMP_ON.R);
+          setLamp(h.ped.G, walk ? LAMP_ON.G : LAMP_OFF.G);
         }
       }
     },
