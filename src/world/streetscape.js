@@ -1,6 +1,6 @@
 import { addTree } from './props/trees.js';
 import { addLamp } from './props/street.js';
-import { KERB_H, STOPS, stopPlacement } from './plan.js';
+import { KERB_H, STOPS, stopPlacement, RAIL } from './plan.js';
 
 /* ------------------------------------------------------------------ *
  * Street trees and street lights along every road, placed from the
@@ -14,7 +14,9 @@ export function buildStreetscape(ctx, streets) {
   const r = rng(77);
   // bus shelters need 7 m of clear pavement either side of their centre
   const shelters = STOPS.map((s) => stopPlacement(s).shelter);
-  const nearShelter = (x, z, d = 7) => shelters.some((p) => Math.abs(p.x - x) < d && Math.abs(p.z - z) < d);
+  const nearShelter = (x, z, d = 7) => shelters.some((p) => Math.abs(p.x - x) < d && Math.abs(p.z - z) < d)
+    // nothing grows or stands inside the railway corridor
+    || (z > RAIL.corridor[0] - 4 && z < RAIL.corridor[1] + 2);
   let i = 0;
   for (const s of streets.treeSpots) {
     i++;
