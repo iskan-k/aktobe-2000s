@@ -6,3 +6,4 @@ public/audio/*
 !public/audio/README.md
 .DS_Store
 .claude/
+node_modules
