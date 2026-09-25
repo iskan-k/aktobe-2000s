@@ -8,8 +8,9 @@ import { hall, porch, fascia, flagpole, runningTrack, goal, gymBars, veranda, pl
 import { SignSheet, placeSign } from '../buildings/signs.js';
 import {
   cover, addPath, plantTrees, scatterTrees, addBarFence, addTyreBed, addTyreSwan, addLaundryPoles,
-  addDominoTable, addCarpetFrame, districtCtx, groundQuad,
+  addDominoTable, districtCtx, groundQuad,
 } from '../props/yard.js';
+import { addCarpetFrame } from '../props/play.js';
 import { addBench } from '../props/street.js';
 
 /* ------------------------------------------------------------------ *

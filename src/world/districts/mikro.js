@@ -3,10 +3,10 @@ import { buildBlock } from '../buildings/panel.js';
 import { buildStalin } from '../buildings/stalin.js';
 import { SignSheet } from '../buildings/signs.js';
 import {
-  cover, addPath, plantTrees, scatterTrees, addLoopFence, addGarages, addOldPlayground,
-  addPlasticPlayground, addCarpetFrame, addLaundryPoles, addSkips, addTyreBed, addTyreSwan,
-  addCat, addDominoTable, districtCtx, groundQuad,
+  cover, addPath, plantTrees, scatterTrees, addLoopFence, addGarages, addLaundryPoles, addSkips,
+  addTyreBed, addTyreSwan, addDominoTable, districtCtx, groundQuad,
 } from '../props/yard.js';
+import { addOldPlayground, addPlasticPlayground, addCarpetFrame, addCat } from '../props/play.js';
 import { addBench } from '../props/street.js';
 
 /* ------------------------------------------------------------------ *

@@ -6,9 +6,10 @@ import {
 } from '../buildings/works.js';
 import { SignSheet } from '../buildings/signs.js';
 import {
-  cover, addPath, plantTrees, scatterTrees, addGarages, addPlasticPlayground, addCarpetFrame,
-  addLaundryPoles, addSkips, addTyreBed, addTyreSwan, addHeatingMain, addSportsBox, addSwing, districtCtx, groundQuad,
+  cover, addPath, plantTrees, scatterTrees, addGarages, addLaundryPoles, addSkips, addTyreBed,
+  addTyreSwan, addHeatingMain, addSportsBox, districtCtx, groundQuad,
 } from '../props/yard.js';
+import { addPlasticPlayground, addCarpetFrame, addSwing } from '../props/play.js';
 import { addBench } from '../props/street.js';
 
 /* ------------------------------------------------------------------ *
