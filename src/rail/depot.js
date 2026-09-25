@@ -6,6 +6,7 @@ import { SURF, TILE, hQuad, splitRect } from '../core/surfaces.js';
 import { BOUNDS, RAIL } from '../world/plan.js';
 import { texBox } from '../world/buildings/landmarks.js';
 import { bakeType } from './rolling.js';
+import { buildEr } from './steamEngine.js';
 import { DEPOT, RAIL_Y, CROSSING, BRIDGE } from './layout.js';
 
 /* ------------------------------------------------------------------ *
@@ -135,70 +136,16 @@ function stabledPair(ctx) {
 function steamEngine(ctx) {
   const b = ctx.batch;
   const { x, z } = ER;
-  const BLACK = 0x1f2021, RED = 0xb3262b, WHITE = 0xe8e4da;
-  // plinth: a concrete bed with a short length of track
+  // plinth: a concrete bed with a short length of track on it
   b.box(ER.len + 2, 0.7, 4, 0xa8a397, x, -0.04, z);
   b.box(ER.len + 2.2, 0.08, 4.2, 0x8f8b82, x, 0.62, z);
   for (let i = 0; i < 34; i++) b.box(0.25, 0.1, 2.6, 0x6b5238, x - ER.len / 2 + 0.3 + i * 0.62, 0.7, z);
   for (const s of [-1, 1]) b.box(ER.len + 1.6, 0.14, 0.07, 0x5d4c40, x, 0.8, z + s * 0.76);
-  const y0 = 0.94;
-  // wheels: five coupled axles, red with white tyres
-  const wheelX = [-4.2, -2.85, -1.5, -0.15, 1.2].map((d) => x + d);
-  for (const wx of wheelX) {
-    for (const s of [-1, 1]) {
-      b.cyl(0.66, 0.1, WHITE, wx, y0 + 0.66, z + s * 0.76, { rx: Math.PI / 2, seg: 16 });
-      b.cyl(0.6, 0.14, RED, wx, y0 + 0.66, z + s * 0.78, { rx: Math.PI / 2, seg: 16 });
-    }
-  }
-  for (const s of [-1, 1]) b.box(5.6, 0.1, 0.08, 0x9ea3a4, x - 1.5, y0 + 0.6, z + s * 0.92);
-  // frame, buffer beam, cylinders
-  b.box(12.5, 0.5, 2.0, BLACK, x - 1.2, y0 + 0.8, z);
-  b.box(0.3, 0.6, 3.0, RED, x - 7.4, y0 + 0.6, z);
-  for (const s of [-1, 1]) {
-    b.cyl(0.35, 0.3, BLACK, x - 7.6, y0 + 1.0, z + s * 0.8, { rz: Math.PI / 2, seg: 10 });
-    b.cyl(0.36, 1.4, BLACK, x - 6.4, y0 + 1.1, z + s * 1.05, { rz: Math.PI / 2, seg: 10 });
-    b.box(12.8, 0.06, 0.5, BLACK, x - 1.1, y0 + 1.9, z + s * 1.3);
-    b.box(12.8, 0.08, 0.05, RED, x - 1.1, y0 + 1.84, z + s * 1.55);
-  }
-  // boiler, smokebox with the red star, chimney, domes
-  b.cyl(0.85, 7.4, BLACK, x - 6.6, y0 + 2.6, z, { rz: -Math.PI / 2, seg: 16 });
-  b.cyl(0.92, 1.4, 0x151617, x - 7.2, y0 + 2.6, z, { rz: -Math.PI / 2, seg: 16 });
-  b.cyl(0.7, 0.05, 0x151617, x - 7.25, y0 + 2.6, z, { rz: Math.PI / 2, seg: 16 });
-  const star = new THREE.Shape();
-  for (let i = 0; i < 10; i++) {
-    const a = Math.PI / 2 + (i * Math.PI) / 5, rr = i % 2 ? 0.14 : 0.34;
-    if (i) star.lineTo(Math.cos(a) * rr, Math.sin(a) * rr); else star.moveTo(Math.cos(a) * rr, Math.sin(a) * rr);
-  }
-  const sg = new THREE.ShapeGeometry(star);
-  sg.rotateY(-Math.PI / 2);
-  sg.translate(x - 7.32, y0 + 2.6, z);
-  b.add(sg, { color: RED });
-  b.cyl(0.26, 0.9, BLACK, x - 6.5, y0 + 3.3, z, { seg: 12, rTop: 0.3 });
-  b.cyl(0.4, 0.55, BLACK, x - 3.6, y0 + 3.3, z, { seg: 12, rTop: 0.34 });
-  b.cyl(0.36, 0.45, BLACK, x - 1.9, y0 + 3.3, z, { seg: 12, rTop: 0.3 });
-  for (const s of [-1, 1]) b.box(0.9, 1.2, 0.08, BLACK, x - 6.4, y0 + 2.4, z + s * 0.95);
-  // the cab
-  b.box(2.6, 2.4, 3.0, BLACK, x + 2.2, y0 + 2.0, z);
-  b.box(3.0, 0.14, 3.3, 0x151617, x + 2.2, y0 + 4.4, z, { closed: true });
-  for (const s of [-1, 1]) {
-    b.box(0.9, 0.7, 0.06, 0x3a4a52, x + 2.5, y0 + 3.2, z + s * 1.52, { mat: 'glass' });
-    b.box(2.0, 0.08, 0.07, RED, x + 2.2, y0 + 2.7, z + s * 1.52);
-  }
-  // tender on two bogies
-  const tx = x + 6.6;
-  b.box(6.4, 2.4, 2.9, BLACK, tx, y0 + 1.3, z);
-  b.box(6.0, 0.4, 2.6, 0x151617, tx, y0 + 3.7, z);
-  b.box(6.5, 0.1, 3.0, RED, tx, y0 + 1.3, z);
-  for (const bx of [-1.9, 1.9]) {
-    b.box(2.6, 0.5, 2.0, BLACK, tx + bx, y0 + 0.35, z);
-    for (const dx of [-0.6, 0.6]) {
-      for (const s of [-1, 1]) b.cyl(0.45, 0.1, RED, tx + bx + dx, y0 + 0.45, z + s * 0.78, { rx: Math.PI / 2, seg: 12 });
-    }
-  }
+  const { x0, x1 } = buildEr(b, x, z, 0.94);
   // the plaque on its stand, beside the steps
   b.box(0.2, 1.1, 0.2, 0x4a4d50, x - 3, 0, z + 2.8);
   b.box(1.2, 0.7, 0.08, 0x8a7a4a, x - 3, 1.0, z + 2.84, { rx: -0.3 });
-  ctx.colliders.box(x - ER.len / 2 - 1, z - 2, x + ER.len / 2 + 1, z + 2, { top: 5.2, tag: 'monument' });
+  ctx.colliders.box(x0, z - 2, x1, z + 2, { top: 5.2, tag: 'monument' });
   return { plaque: { x: x - 3, z: z + 2.9 } };
 }
 
