@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.shots/
+.research/
+public/audio/*
+!public/audio/README.md
+.DS_Store

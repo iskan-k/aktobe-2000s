@@ -1,0 +1,25 @@
+{
+  "name": "aktobe-2000s",
+  "private": true,
+  "version": "0.1.0",
+  "type": "module",
+  "description": "A walkable, drivable early-2000s Aktobe neighbourhood in Three.js, drawn in a cartoony but realistic style.",
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "play": "vite build && vite preview --port 5189 --open",
+    "shot": "node tools/shot.mjs"
+  },
+  "dependencies": {
+    "three": "^0.186.1"
+  },
+  "devDependencies": {
+    "playwright": "^1.63.0",
+    "vite": "^8.3.1"
+  }
+}
