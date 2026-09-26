@@ -402,6 +402,19 @@ function yurt(ctx) {
     },
   });
 
+  // a қазан on its iron tripod over a dead fire, round the side
+  const kx = x - 4.2, kz = z + 3.2;
+  for (let i = 0; i < 3; i++) {
+    const a = (i / 3) * Math.PI * 2;
+    b.tube(kx + Math.cos(a) * 0.55, 0, kz + Math.sin(a) * 0.55, kx, 1.0, kz, 0.02, 0x2a2622, { seg: 4 });
+  }
+  const pot = new THREE.SphereGeometry(0.34, 12, 6, 0, Math.PI * 2, Math.PI / 2, Math.PI / 2);
+  pot.translate(kx, 0.72, kz);
+  b.add(pot, { color: 0x24211f });
+  b.cyl(0.36, 0.04, 0x1c1a18, kx, 0.7, kz, { seg: 12 });
+  b.cyl(0.5, 0.06, 0x3a342e, kx, -0.02, kz, { seg: 10 });
+  colliders.circle(kx, kz, 0.6, { top: 1.0, tag: 'kazan' });
+
   // the mare grazing, and her foal tied on the желі line
   horse(b, x + 8, z + 2, 2.3, 1, 0x7a4a2a, 0x3a2418, true);
   horse(b, x + 9.5, z + 7.5, 0.4, 0.66, 0x8a5a36, 0x4a2e1c, false);
