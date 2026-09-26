@@ -5,6 +5,7 @@ import { createParked } from './vehicles/parked.js';
 import { createMap } from './core/map.js';
 import { createRail } from './rail/train.js';
 import { createFluff } from './world/fluff.js';
+import { createGroundcover } from './world/groundcover.js';
 
 /* ------------------------------------------------------------------ *
  * Moving systems: traffic, transit, the railway, the player's car.
@@ -21,4 +22,5 @@ export const SYSTEMS = [
   { name: 'map', create: createMap },
   { name: 'rail', create: createRail },
   { name: 'fluff', create: createFluff },
+  { name: 'groundcover', create: createGroundcover },
 ];

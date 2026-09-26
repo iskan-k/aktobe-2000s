@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { mulberry32 } from '../core/util.js';
+import { SUN_DIR } from '../core/sky.js';
 
 /* ------------------------------------------------------------------ *
  * Poplar fluff (тополиный пух) drifting through June.
@@ -9,6 +10,7 @@ import { mulberry32 } from '../core/util.js';
  * One draw call of GPU points: the flakes live in a box that wraps
  * around the camera, drift on a slow breeze with a lazy wobble, sink a
  * little and fade out at the edges of the box, so the wrap never shows.
+ * Looking toward the low sun, the backlit flakes light up.
  * The drifts on the ground are static geometry (districts/streetlife.js).
  * ------------------------------------------------------------------ */
 
@@ -22,8 +24,9 @@ const SINK = 0.05;       // m/s
 const VERT = /* glsl */ `
   attribute vec4 aSeed;          // phase, frequency, speed, size
   uniform float uTime, uBox, uHeight, uScale, uFlake, uSink;
-  uniform vec3 uCam, uWind;
+  uniform vec3 uCam, uWind, uSun;
   varying float vAlpha;
+  varying float vGlow;
   void main() {
     float t = uTime;
     float ph = aSeed.x, fr = aSeed.y, sp = aSeed.z;
@@ -35,6 +38,8 @@ const VERT = /* glsl */ `
     float y = mod(p.y, uHeight) + 0.04;
     vec3 world = vec3(uCam.x + rel.x, y, uCam.z + rel.y);
     vec4 mv = viewMatrix * vec4(world, 1.0);
+    // backlit by the low sun, a flake lights up like a spark
+    vGlow = pow(max(dot(normalize(world - uCam), uSun), 0.0), 5.0);
     gl_Position = projectionMatrix * mv;
     float dist = -mv.z;
     float px = uFlake * aSeed.w * uScale / max(dist, 0.1);
@@ -52,6 +57,7 @@ const VERT = /* glsl */ `
 const FRAG = /* glsl */ `
   uniform vec3 uColor;
   varying float vAlpha;
+  varying float vGlow;
   void main() {
     vec2 c = gl_PointCoord - 0.5;
     float r = length(c);
@@ -59,7 +65,9 @@ const FRAG = /* glsl */ `
     float a = smoothstep(0.5, 0.12, r);
     a *= 0.55 + 0.45 * smoothstep(0.3, 0.0, r);
     if (a * vAlpha < 0.02) discard;
-    gl_FragColor = vec4(uColor * (0.9 + 0.1 * smoothstep(0.3, 0.0, r)), a * vAlpha * 0.9);
+    vec3 col = uColor * (0.9 + 0.1 * smoothstep(0.3, 0.0, r)) * (1.0 + vGlow * 0.9);
+    col = mix(col, col * vec3(1.0, 0.93, 0.8), vGlow);
+    gl_FragColor = vec4(col, min(1.0, a * vAlpha * (0.9 + vGlow * 0.6)));
   }
 `;
 
@@ -90,6 +98,7 @@ export function createFluff(game) {
     uSink: { value: SINK },
     uCam: { value: new THREE.Vector3() },
     uWind: { value: WIND.clone() },
+    uSun: { value: SUN_DIR.clone() },
     // linear colour: warm white, it glows a little in the low sun
     uColor: { value: new THREE.Color(0xf7f2e4) },
   };

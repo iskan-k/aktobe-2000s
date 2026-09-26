@@ -118,40 +118,60 @@ function dirtTex() {
 function grassTex() {
   return cached('surf-grass', () => canvasTex(512, 512, (ctx, w, h) => {
     const r = rngKit(14);
-    ctx.fillStyle = '#869650';
+    ctx.fillStyle = '#7f934c';
     ctx.fillRect(0, 0, w, h);
-    // big patches of greener and drier grass
-    for (let i = 0; i < 30; i++) {
-      const x = r.range(0, w), y = r.range(0, h), rad = r.range(40, 140);
-      for (const [ox, oy] of [[0, 0], [-w, 0], [w, 0], [0, -h], [0, h]]) {
+    const wrap = (fn) => { for (const [ox, oy] of [[0, 0], [-w, 0], [w, 0], [0, -h], [0, h], [-w, -h], [w, h], [-w, h], [w, -h]]) fn(ox, oy); };
+    // broad patches: lush where the sprinkler reaches, straw where it never did
+    for (let i = 0; i < 34; i++) {
+      const x = r.range(0, w), y = r.range(0, h), rad = r.range(50, 150);
+      const c = r.pick(['104,134,60', '150,152,90', '92,122,52', '170,160,102', '120,146,66']);
+      wrap((ox, oy) => {
         const g = ctx.createRadialGradient(x + ox, y + oy, 4, x + ox, y + oy, rad);
-        const c = r.pick(['112,140,66', '160,158,96', '98,128,58', '176,164,106']);
-        g.addColorStop(0, `rgba(${c},0.55)`);
+        g.addColorStop(0, `rgba(${c},0.5)`);
         g.addColorStop(1, `rgba(${c},0)`);
         ctx.fillStyle = g;
-        ctx.fillRect(0, 0, w, h);
-      }
+        ctx.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2);
+      });
     }
-    // blades
-    for (let i = 0; i < 9000; i++) {
+    // clover and plantain rosettes, a darker, rounder green
+    for (let i = 0; i < 70; i++) {
       const x = r.range(0, w), y = r.range(0, h);
-      ctx.strokeStyle = r.pick(['#5f7a38', '#99a458', '#738c42', '#b3ad6c', '#4f6a30']);
-      ctx.globalAlpha = r.range(0.3, 0.8);
-      ctx.lineWidth = 1;
+      const col = r.pick(['#5f7f38', '#6a8a3e', '#557533']);
+      for (let k = 0; k < 5; k++) {
+        const a = (k / 5) * Math.PI * 2 + r.range(-0.3, 0.3);
+        ctx.fillStyle = col;
+        ctx.globalAlpha = r.range(0.5, 0.85);
+        ctx.beginPath();
+        ctx.ellipse(x + Math.cos(a) * 3.5, y + Math.sin(a) * 3.5, 3.4, 2.2, a, 0, Math.PI * 2);
+        ctx.fill();
+      }
+      if (r.chance(0.15)) { ctx.fillStyle = '#f0ece0'; ctx.globalAlpha = 0.9; ctx.beginPath(); ctx.arc(x, y, 2.2, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.globalAlpha = 1;
+    // blades in every direction, short strokes: seen from above, grass is
+    // a tangle, not a comb
+    for (let i = 0; i < 14000; i++) {
+      const x = r.range(0, w), y = r.range(0, h);
+      const a = r.range(0, Math.PI * 2), l = r.range(2, 6);
+      ctx.strokeStyle = r.pick(['#5a7534', '#94a456', '#6f8a40', '#adaa6a', '#4b652d', '#869a4a']);
+      ctx.globalAlpha = r.range(0.25, 0.7);
+      ctx.lineWidth = r.range(0.8, 1.4);
       ctx.beginPath();
       ctx.moveTo(x, y);
-      ctx.lineTo(x + r.range(-2, 2), y - r.range(2, 6));
+      ctx.lineTo(x + Math.cos(a) * l, y + Math.sin(a) * l);
       ctx.stroke();
     }
     ctx.globalAlpha = 1;
-    // bare spots
-    for (let i = 0; i < 8; i++) {
-      const x = r.range(0, w), y = r.range(0, h), rad = r.range(10, 34);
-      const g = ctx.createRadialGradient(x, y, 1, x, y, rad);
-      g.addColorStop(0, 'rgba(170,146,110,0.7)');
-      g.addColorStop(1, 'rgba(170,146,110,0)');
-      ctx.fillStyle = g;
-      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    // bare, trodden spots
+    for (let i = 0; i < 7; i++) {
+      const x = r.range(0, w), y = r.range(0, h), rad = r.range(10, 30);
+      wrap((ox, oy) => {
+        const g = ctx.createRadialGradient(x + ox, y + oy, 1, x + ox, y + oy, rad);
+        g.addColorStop(0, 'rgba(162,140,106,0.65)');
+        g.addColorStop(1, 'rgba(162,140,106,0)');
+        ctx.fillStyle = g;
+        ctx.fillRect(x + ox - rad, y + oy - rad, rad * 2, rad * 2);
+      });
     }
   }, { repeat: [1, 1] }));
 }
@@ -186,6 +206,34 @@ function slabsTex() {
       ctx.stroke();
     }
     for (let i = 0; i < 6; i++) crack(ctx, w, h, r, 'rgba(70,66,60,0.45)', 1.5);
+    // a chipped corner or two, a sunken slab gone dark with old rain,
+    // and the rust-brown grime that gathers along the joints
+    for (let i = 0; i < 5; i++) {
+      const cx = r.int(0, n) * s, cy = r.int(0, n) * s;
+      const q = r.range(10, 26);
+      ctx.fillStyle = 'rgba(96,90,80,0.7)';
+      ctx.beginPath();
+      ctx.moveTo(cx, cy); ctx.lineTo(cx + q * r.sign(), cy); ctx.lineTo(cx, cy + q * r.sign());
+      ctx.fill();
+    }
+    for (let i = 0; i < 2; i++) {
+      ctx.fillStyle = 'rgba(90,88,84,0.22)';
+      ctx.fillRect(r.int(0, n - 1) * s + 2, r.int(0, n - 1) * s + 2, s - 4, s - 4);
+    }
+    ctx.strokeStyle = 'rgba(112,92,66,0.28)';
+    ctx.lineWidth = 7;
+    for (let i = 0; i <= n; i++) {
+      ctx.beginPath(); ctx.moveTo(i * s, 0); ctx.lineTo(i * s, h); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(0, i * s); ctx.lineTo(w, i * s); ctx.stroke();
+    }
+    for (let i = 0; i < 6; i++) {
+      const x = r.range(0, w), y = r.range(0, h), rad = r.range(12, 40);
+      const g = ctx.createRadialGradient(x, y, 1, x, y, rad);
+      g.addColorStop(0, 'rgba(80,74,66,0.2)');
+      g.addColorStop(1, 'rgba(80,74,66,0)');
+      ctx.fillStyle = g;
+      ctx.fillRect(x - rad, y - rad, rad * 2, rad * 2);
+    }
   }, { repeat: [1, 1] }));
 }
 
@@ -257,7 +305,7 @@ export const SURF = {
   get asphalt() { return surfMat('asphalt', asphaltTex); },
   get walk() { return surfMat('walk', walkTex); },
   get dirt() { return surfMat('dirt', dirtTex); },
-  get grass() { return surfMat('grass', grassTex, { grime: 0.08 }); },
+  get grass() { return surfMat('grass', grassTex, { grime: 0.14 }); },
   get slabs() { return surfMat('slabs', slabsTex); },
   get sand() { return surfMat('sand', sandTex); },
   get yard() { return surfMat('yard', yardTex, { grime: 0.07 }); },
