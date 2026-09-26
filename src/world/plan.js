@@ -25,7 +25,14 @@
  * piece of a larger city.
  * ------------------------------------------------------------------ */
 
-export const BOUNDS = { x0: -232, x1: 232, z0: -196, z1: 158 };
+export const BOUNDS = { x0: -232, x1: 232, z0: -196, z1: 380 };
+
+/**
+ * The south end of the old town: the garage cooperatives, the sights and
+ * the wire fence stop here. South of it lie the airport (west of
+ * ул. Айтеке би) and the central stadium (east of it).
+ */
+export const TOWN_Z1 = 158;
 
 /** Where the world visibly stops: beyond this is haze and backdrop. */
 export const PORTAL_REACH = 460;
@@ -187,7 +194,10 @@ export const BLOCKS = {
   // edges
   westEdge: { x0: BOUNDS.x0, x1: -150 - outerEdge(roadById.west, 0), z0: -112 + outerEdge(roadById.vokzal, 1), z1: 118 - outerEdge(roadById.south, 0) },
   station: { x0: -150, x1: BOUNDS.x1, z0: RAIL.corridor[1], z1: -112 - outerEdge(roadById.vokzal, 0) },
-  southEdge: { x0: BOUNDS.x0, x1: BOUNDS.x1, z0: 118 + outerEdge(roadById.south, 1), z1: BOUNDS.z1 },
+  southEdge: { x0: BOUNDS.x0, x1: BOUNDS.x1, z0: 118 + outerEdge(roadById.south, 1), z1: TOWN_Z1 },
+  // south of the town fence, either side of ул. Айтеке би
+  airport: { x0: BOUNDS.x0, x1: -20 - outerEdge(roadById.mid, 0), z0: TOWN_Z1, z1: BOUNDS.z1 },
+  stadium: { x0: -20 + outerEdge(roadById.mid, 1), x1: BOUNDS.x1, z0: TOWN_Z1, z1: BOUNDS.z1 },
   northOfRail: { x0: BOUNDS.x0, x1: BOUNDS.x1, z0: BOUNDS.z0, z1: RAIL.corridor[0] },
 };
 

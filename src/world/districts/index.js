@@ -8,6 +8,8 @@ import { square } from './square.js';
 import { station } from './station.js';
 import { edges } from './edges.js';
 import { sights } from './sights.js';
+import { airport } from './airport.js';
+import { stadium } from './stadium.js';
 
 /* ------------------------------------------------------------------ *
  * District registry. Each entry is { name, build(ctx) }; see
@@ -27,4 +29,6 @@ export const DISTRICTS = [
   station,
   edges,
   sights,
+  airport,
+  stadium,
 ];

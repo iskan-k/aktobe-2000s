@@ -3,7 +3,7 @@ import { cel } from '../../core/toon.js';
 import { SURF, TILE, hQuad, worldUV } from '../../core/surfaces.js';
 import { signTex } from '../../core/textures.js';
 import { rngKit } from '../../core/util.js';
-import { BLOCKS, BOUNDS, SIGHTS, roadById, outerEdge } from '../plan.js';
+import { BLOCKS, BOUNDS, SIGHTS, TOWN_Z1, roadById, outerEdge } from '../plan.js';
 import { KIT, TILES, tbox, mtx, quadGeo } from '../buildings/houseKit.js';
 import { addTree } from '../props/trees.js';
 import { addWires } from '../props/street.js';
@@ -160,7 +160,7 @@ function wasteGround(ctx, x0, x1) {
   // the trodden paths
   const path = [[MID_W[1], 127.5], [P.x0 - 1, P.z0 - 2], [P.x1 + 2, P.z0 - 2.5], [96, 136], [x1, 135]];
   strip(batch, path, 1.3, -0.02, SURF.yard, TILE.yard);
-  strip(batch, [[P.x1 + 2, P.z0 - 2.5], [84, 148], [92, BOUNDS.z1]], 1.1, -0.019, SURF.yard, TILE.yard);
+  strip(batch, [[P.x1 + 2, P.z0 - 2.5], [84, 148], [92, TOWN_Z1]], 1.1, -0.019, SURF.yard, TILE.yard);
   // weeds, bushes, a heap of rubbish and the shell of a Moskvich
   for (let i = 0; i < 160; i++) {
     const x = rng.range(x0 + 1, x1 - 1), z = rng.range(z0 + 1, z1 - 0.5);
@@ -258,15 +258,15 @@ function steppe(batch) {
   if (!steppeMat) steppeMat = cel({ map: SURF.grass.map, cache: false, polygonOffset: 3, grime: 0.06, dirt: 0, bands: 3 });
   const R = 860, T = 25;
   const quads = [
-    [-R, BOUNDS.z1, MID_W[0], R], [MID_W[1], BOUNDS.z1, R, R],
-    [-R, S.z0, BOUNDS.x0, BOUNDS.z1], [BOUNDS.x1, S.z0, R, BOUNDS.z1],
+    [-R, TOWN_Z1, MID_W[0], R], [MID_W[1], TOWN_Z1, R, R],
+    [-R, S.z0, BOUNDS.x0, TOWN_Z1], [BOUNDS.x1, S.z0, R, TOWN_Z1],
   ];
   for (const [x0, z0, x1, z1] of quads) {
     const g = hQuad(x0, z0, x1, z1, -0.045, T);
     batch.add(g, { mat: steppeMat, color: null, cast: false });
   }
   // a wire fence on concrete posts marks where the town stops
-  const fz = BOUNDS.z1 - 0.4;
+  const fz = TOWN_Z1 - 0.4;
   for (const [a, b] of [[BOUNDS.x0, MID_W[0] - 0.5], [MID_W[1] + 0.5, BOUNDS.x1]]) {
     for (let x = a; x <= b; x += 3) batch.box(0.14, 1.5, 0.14, 0xb4b0a6, x, 0, fz, { rz: Math.sin(x * 1.7) * 0.05, cast: false });
     for (const y of [0.45, 0.9, 1.35]) batch.tube(a, y, fz, b, y, fz, 0.008, 0x5a5854, { seg: 3, cast: false });
@@ -280,8 +280,8 @@ export function southEdge(ctx, far) {
   cooperative(ctx, SIGHTS.east.x1 + 4, BOUNDS.x1 - 2, 1515, '«ЖИГУЛИ»');
   wasteGround(ctx, MID_W[1], 120);
   // the strip south of the west cooperative, down to the fence
-  ctx.batch.add(hQuad(BOUNDS.x0, ROW_B.back, MID_W[0], BOUNDS.z1, -0.03, TILE.grass), { mat: SURF.grass, color: null, cast: false });
-  ctx.batch.add(hQuad(120, ROW_B.back, BOUNDS.x1, BOUNDS.z1, -0.03, TILE.grass), { mat: SURF.grass, color: null, cast: false });
+  ctx.batch.add(hQuad(BOUNDS.x0, ROW_B.back, MID_W[0], TOWN_Z1, -0.03, TILE.grass), { mat: SURF.grass, color: null, cast: false });
+  ctx.batch.add(hQuad(120, ROW_B.back, BOUNDS.x1, TOWN_Z1, -0.03, TILE.grass), { mat: SURF.grass, color: null, cast: false });
   hvLine(ctx, far);
   steppe(far);
 }

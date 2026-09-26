@@ -19,6 +19,8 @@ const BLOCK_STYLE = {
   station: ['#e6ddd0', 'Вокзал Актобе-1'],
   southEdge: ['#efe6cf', 'Гаражи'],
   northOfRail: ['#e5dccb', 'Промзона'],
+  airport: ['#e4e2d6', 'Аэропорт'],
+  stadium: ['#dbe6c6', 'Центральный стадион'],
 };
 
 export function createMap(game) {
