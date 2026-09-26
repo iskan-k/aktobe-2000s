@@ -31,6 +31,9 @@ const RAMPS = {
   soft: [176, 226, 255],
   // many small steps: close to smooth, for big curved things
   smooth: [70, 100, 130, 160, 190, 215, 238, 255],
+  // statues: five steps with a lifted shadow end, so a dark bronze face
+  // on the shade side of a monument still shows its nose and brow
+  statue: [108, 132, 156, 180, 204, 230, 255],
 };
 
 const rampCache = new Map();
