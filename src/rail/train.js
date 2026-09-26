@@ -47,6 +47,9 @@ const CLACK_RANGE = 35;
  */
 const PATTERN = [['passenger', 1], ['freight', -1], ['passenger', -1], ['freight', 1]];
 const HORN_DANGER = 180;
+// feet above the tallest body are overhead (the footbridge), not on the line
+const TRAIN_ROOF = Math.max(...Object.values(BODY).map(([, top]) => top));
+const atTrackLevel = (p) => p.y < TRAIN_ROOF;
 
 
 /* ---------------- composition ---------------- */
@@ -285,7 +288,7 @@ export function createRail(game) {
     // somebody on the line ahead: keep blowing
     tr.dangerT -= dt;
     const p = game.controller ? null : game.player.pos;
-    if (p && tr.v > 2 && Math.abs(p.z - tr.z) < 2.2 && tr.dangerT <= 0) {
+    if (p && atTrackLevel(p) && tr.v > 2 && Math.abs(p.z - tr.z) < 2.2 && tr.dangerT <= 0) {
       const ahead = (p.x - tr.head) * tr.dir;
       if (ahead > 0 && ahead < HORN_DANGER) { horn(tr, [['low', 1.0], ['high', 1.0]]); tr.dangerT = 3; }
     }
@@ -298,6 +301,7 @@ export function createRail(game) {
   function jumpClear(tr) {
     if (game.controller || tr.v < 0.5) return;
     const p = game.player.pos;
+    if (!atTrackLevel(p)) return;
     if (Math.abs(p.z - tr.z) > BODY.loco_green[0] + 0.4) return;
     const front = tr.head + tr.dir * 0.8, back = tailOf(tr);
     if ((p.x - back) * tr.dir < 0 || (p.x - front) * tr.dir > 0) return;

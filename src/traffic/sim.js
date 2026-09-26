@@ -336,7 +336,9 @@ export function createTraffic(game) {
       const along = Math.cos(pc.yaw - v.heading);
       test(pc.pos.x, pc.pos.z, pc.width / 2 + 0.2, pc.length / 2, pc.active ? Math.max(0, pc.speed * along) : 0);
     }
-    if (!game.controller) test(game.player.pos.x, game.player.pos.z, 0.45, 0.3, 0);
+    // a walker overhead (on a footbridge or a porch roof) is not in the road
+    const wp = game.player.pos;
+    if (!game.controller && wp.y < v.collider.top) test(wp.x, wp.z, 0.45, 0.3, 0);
     return best;
   }
 
