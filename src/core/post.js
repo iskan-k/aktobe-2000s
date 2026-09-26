@@ -7,7 +7,8 @@ import { PAL } from './palette.js';
  *
  *   scene -> rtScene (colour + depth)
  *         -> ink    : outlines from the second difference of depth
- *         -> grade  : dusty evening grade, then linear -> sRGB
+ *         -> glow   : quarter-res bright pass and blur (bloom)
+ *         -> grade  : dusty evening grade plus the glow, then linear -> sRGB
  *         -> fxaa   : straight to the screen
  *
  * The ink idea (second difference of linear depth, so planar surfaces
@@ -97,18 +98,21 @@ const GRADE_SHADER = {
   uniforms: {
     tDiffuse: { value: null },
     uShadowTint: { value: new THREE.Color(0xb4bccb) },
-    uLightTint: { value: new THREE.Color(0xfff4e2) },
+    uLightTint: { value: new THREE.Color(0xfff8ee) },
     uSaturation: { value: 1.04 },
     uLift: { value: 0.026 },
     uVignette: { value: 0.18 },
-    uWarmth: { value: 0.045 },
+    uWarmth: { value: 0.035 },
     uExposure: { value: 1.0 },
     uTime: { value: 0 },
     uGrain: { value: 0.018 },
+    tBloom: { value: null },
+    uBloom: { value: 0.0 },
   },
   vertexShader: VERT,
   fragmentShader: /* glsl */ `
-    uniform sampler2D tDiffuse;
+    uniform sampler2D tDiffuse, tBloom;
+    uniform float uBloom;
     uniform vec3 uShadowTint, uLightTint;
     uniform float uSaturation, uLift, uVignette, uWarmth, uExposure, uTime, uGrain;
     varying vec2 vUv;
@@ -125,6 +129,7 @@ const GRADE_SHADER = {
 
     void main() {
       vec3 c = texture2D( tDiffuse, vUv ).rgb * uExposure;
+      c += texture2D( tBloom, vUv ).rgb * uBloom;
       float l = dot( c, vec3( 0.2126, 0.7152, 0.0722 ) );
 
       // split tone: cool steppe-sky darks, warm evening lights
@@ -145,6 +150,51 @@ const GRADE_SHADER = {
       // a whisper of film grain: without it big flat areas band
       outc += ( hash12( gl_FragCoord.xy + fract( uTime ) * 91.7 ) - 0.5 ) * uGrain;
       gl_FragColor = vec4( outc, 1.0 );
+    }
+  `,
+};
+
+/* A soft glow round the brightest things (the sky by the sun, lit lamp
+ * heads, a white wall in full sun), at quarter resolution: a bright pass
+ * with a soft knee, then a separable blur. The grade adds it back. */
+const BRIGHT_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uTexel: { value: new THREE.Vector2() },
+    uThreshold: { value: 0.72 },
+  },
+  vertexShader: VERT,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    uniform vec2 uTexel;
+    uniform float uThreshold;
+    varying vec2 vUv;
+    void main() {
+      vec2 o = uTexel * 1.5;
+      vec3 c = ( texture2D( tDiffuse, vUv + vec2( -o.x, -o.y ) ).rgb + texture2D( tDiffuse, vUv + vec2( o.x, -o.y ) ).rgb
+               + texture2D( tDiffuse, vUv + vec2( -o.x, o.y ) ).rgb + texture2D( tDiffuse, vUv + vec2( o.x, o.y ) ).rgb ) * 0.25;
+      float l = max( c.r, max( c.g, c.b ) );
+      float k = clamp( ( l - uThreshold ) / ( 1.0 - uThreshold + 1e-4 ), 0.0, 1.0 );
+      gl_FragColor = vec4( c * k * k, 1.0 );
+    }
+  `,
+};
+
+const BLUR_SHADER = {
+  uniforms: {
+    tDiffuse: { value: null },
+    uDir: { value: new THREE.Vector2() },
+  },
+  vertexShader: VERT,
+  fragmentShader: /* glsl */ `
+    uniform sampler2D tDiffuse;
+    uniform vec2 uDir;
+    varying vec2 vUv;
+    void main() {
+      vec3 c = texture2D( tDiffuse, vUv ).rgb * 0.2270;
+      c += ( texture2D( tDiffuse, vUv + uDir * 1.3846 ).rgb + texture2D( tDiffuse, vUv - uDir * 1.3846 ).rgb ) * 0.3162;
+      c += ( texture2D( tDiffuse, vUv + uDir * 3.2308 ).rgb + texture2D( tDiffuse, vUv - uDir * 3.2308 ).rgb ) * 0.0703;
+      gl_FragColor = vec4( c, 1.0 );
     }
   `,
 };
@@ -224,8 +274,13 @@ export class Pipeline {
     this.ink = makeQuad(INK_SHADER);
     this.grade = makeQuad(GRADE_SHADER);
     this.fxaa = makeQuad(FXAA_SHADER);
+    this.bright = makeQuad(BRIGHT_SHADER);
+    this.blur = makeQuad(BLUR_SHADER);
+    this.rtGlowA = new THREE.WebGLRenderTarget(2, 2, { ...opts, depthBuffer: false });
+    this.rtGlowB = new THREE.WebGLRenderTarget(2, 2, { ...opts, depthBuffer: false });
+    this.bloomStrength = 0.32;
     this.ink.mat.uniforms.tDepth.value = this.rtScene.depthTexture;
-    this.enabled = { ink: true, grade: true, fxaa: true };
+    this.enabled = { ink: true, grade: true, fxaa: true, bloom: true };
     this.sceneInfo = { calls: 0, triangles: 0 };
   }
 
@@ -245,6 +300,11 @@ export class Pipeline {
     this.rtScene.setSize(rw, rh);
     this.rtA.setSize(rw, rh);
     this.rtB.setSize(rw, rh);
+    const gw = Math.max(2, Math.floor(rw / 4)), gh = Math.max(2, Math.floor(rh / 4));
+    this.rtGlowA.setSize(gw, gh);
+    this.rtGlowB.setSize(gw, gh);
+    this.bright.mat.uniforms.uTexel.value.set(1 / rw, 1 / rh);
+    this.glowTexel = new THREE.Vector2(1 / gw, 1 / gh);
     const texel = new THREE.Vector2(1 / rw, 1 / rh);
     this.ink.mat.uniforms.uTexel.value.copy(texel);
     this.fxaa.mat.uniforms.uTexel.value.copy(texel);
@@ -267,6 +327,27 @@ export class Pipeline {
       src = this.rtA.texture;
     }
     const g = this.grade.mat.uniforms;
+    if (this.enabled.bloom && this.bloomStrength > 0) {
+      this.bright.mat.uniforms.tDiffuse.value = this.rtScene.texture;
+      r.setRenderTarget(this.rtGlowA);
+      this.bright.quad.render(r);
+      const b = this.blur.mat.uniforms;
+      for (let i = 0; i < 2; i++) {
+        b.tDiffuse.value = this.rtGlowA.texture;
+        b.uDir.value.set(this.glowTexel.x * (1 + i), 0);
+        r.setRenderTarget(this.rtGlowB);
+        this.blur.quad.render(r);
+        b.tDiffuse.value = this.rtGlowB.texture;
+        b.uDir.value.set(0, this.glowTexel.y * (1 + i));
+        r.setRenderTarget(this.rtGlowA);
+        this.blur.quad.render(r);
+      }
+      g.tBloom.value = this.rtGlowA.texture;
+      g.uBloom.value = this.bloomStrength;
+    } else {
+      g.tBloom.value = this.rtGlowA.texture;
+      g.uBloom.value = 0;
+    }
     g.tDiffuse.value = src;
     g.uTime.value = time;
     if (!this.enabled.grade) {
