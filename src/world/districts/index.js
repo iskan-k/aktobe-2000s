@@ -7,6 +7,7 @@ import { bazaar } from './bazaar.js';
 import { square } from './square.js';
 import { station } from './station.js';
 import { edges } from './edges.js';
+import { sights } from './sights.js';
 
 /* ------------------------------------------------------------------ *
  * District registry. Each entry is { name, build(ctx) }; see
@@ -25,4 +26,5 @@ export const DISTRICTS = [
   square,
   station,
   edges,
+  sights,
 ];
