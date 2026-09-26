@@ -14,7 +14,7 @@ import { rngKit } from './util.js';
  * into the sky instead of stopping against it. Toward the sun the haze
  * warms to gold: a June evening, the sun low in the west.
  *
- * Cumulus are drawn cel style in three flat tones (lit crown, body, cool
+ * Cumulus are drawn cel style in three tones (lit crown, body, cool
  * shadowed base) with soft edges and a flat bottom, in a few variants so
  * the ring does not repeat. Clouds on the sun side get a warm rim.
  *
@@ -53,11 +53,10 @@ function cumulusTex(seed) {
       ctx.beginPath(); ctx.arc(x, y, rad, 0, Math.PI * 2); ctx.fill();
     };
     // shadowed base, the body, then the lit crown offset up and left
-    // (each layer sits inside the one before, so the cool base shows only
-    // underneath and the lit crown only on top)
-    for (const [x, y, rad] of puffs) disc(x, y, rad, '188,197,216', 1);
-    for (const [x, y, rad] of puffs) disc(x - rad * 0.05, y - rad * 0.12, rad * 0.86, '228,231,238', 1);
-    for (const [x, y, rad] of puffs) disc(x - rad * 0.14, y - rad * 0.3, rad * 0.62, '255,252,244', 1);
+    // (the crown sits inside the body, so it shows only on top; the cool
+    // underside comes from the gradient below)
+    for (const [x, y, rad] of puffs) disc(x, y, rad, '226,229,236', 1);
+    for (const [x, y, rad] of puffs) disc(x - rad * 0.12, y - rad * 0.26, rad * 0.68, '255,252,244', 1);
     // flat base, cumulus style, with a soft shadowed underside
     ctx.globalCompositeOperation = 'destination-out';
     const fade = ctx.createLinearGradient(0, base - h * 0.04, 0, base + h * 0.06);
@@ -66,9 +65,9 @@ function cumulusTex(seed) {
     ctx.fillStyle = fade;
     ctx.fillRect(0, base - h * 0.04, w, h);
     ctx.globalCompositeOperation = 'source-atop';
-    const under = ctx.createLinearGradient(0, base - h * 0.2, 0, base);
-    under.addColorStop(0, 'rgba(160,170,194,0)');
-    under.addColorStop(1, 'rgba(160,170,194,0.55)');
+    const under = ctx.createLinearGradient(0, base - h * 0.34, 0, base);
+    under.addColorStop(0, 'rgba(170,180,204,0)');
+    under.addColorStop(1, 'rgba(170,180,204,0.7)');
     ctx.fillStyle = under;
     ctx.fillRect(0, 0, w, h);
     ctx.globalCompositeOperation = 'source-over';
