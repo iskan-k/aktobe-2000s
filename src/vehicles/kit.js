@@ -88,13 +88,93 @@ function makeAtlas() {
 
 export const ATLAS = makeAtlas();
 
+/* ------------------------------------------------------------ lenses */
+
+/*
+ * Lamp lenses painted into the atlas: fluted red and amber plastic,
+ * the pale reversing lens, and the reflector of a headlamp behind its
+ * ribbed glass. A lens is a decal on the face of its lamp box, so it
+ * costs nothing extra to draw.
+ */
+const LENS = {
+  red: ['#a3221c', '#c9372b', '#841914'],
+  amber: ['#d8892a', '#f0a847', '#b46b1b'],
+  white: ['#d9d5ca', '#f3f0e8', '#b3afa4'],
+  smoke: ['#5e2420', '#7a332c', '#471a17'],
+};
+
+function paintFlutes(ctx, x0, y0, w, h, [base, hi, lo]) {
+  ctx.fillStyle = base;
+  ctx.fillRect(x0, y0, w, h);
+  for (let x = 0; x < w; x += 6) {
+    ctx.fillStyle = hi;
+    ctx.fillRect(x0 + x, y0, 2, h);
+    ctx.fillStyle = lo;
+    ctx.fillRect(x0 + x + 3, y0, 2, h);
+  }
+  for (let y = 0; y < h; y += 10) {
+    ctx.fillStyle = 'rgba(0,0,0,0.12)';
+    ctx.fillRect(x0, y0 + y, w, 1);
+  }
+  // a soft highlight across the top, darker toward the edges
+  const g = ctx.createLinearGradient(0, y0, 0, y0 + h);
+  g.addColorStop(0, 'rgba(255,255,255,0.35)');
+  g.addColorStop(0.35, 'rgba(255,255,255,0.05)');
+  g.addColorStop(1, 'rgba(0,0,0,0.2)');
+  ctx.fillStyle = g;
+  ctx.fillRect(x0, y0, w, h);
+  ctx.strokeStyle = 'rgba(0,0,0,0.35)';
+  ctx.lineWidth = 3;
+  ctx.strokeRect(x0 + 1.5, y0 + 1.5, w - 3, h - 3);
+}
+
+/** uv rect of a lens texture: 'red' | 'amber' | 'white' | 'smoke' | 'head' | 'round'. */
+export function lensUV(kind) {
+  if (kind === 'head') {
+    return ATLAS.slot('lens-head', 96, 48, (ctx, x0, y0, w, h) => {
+      const g = ctx.createRadialGradient(x0 + w / 2, y0 + h / 2, 2, x0 + w / 2, y0 + h / 2, w * 0.55);
+      g.addColorStop(0, '#fffbea');
+      g.addColorStop(0.25, '#e7e6df');
+      g.addColorStop(0.7, '#a9aba7');
+      g.addColorStop(1, '#6d6f6d');
+      ctx.fillStyle = g;
+      ctx.fillRect(x0, y0, w, h);
+      ctx.fillStyle = 'rgba(255,255,255,0.28)';
+      for (let y = 3; y < h; y += 5) ctx.fillRect(x0, y0 + y, w, 1);
+      ctx.fillStyle = 'rgba(40,40,40,0.25)';
+      for (let x = 4; x < w; x += 8) ctx.fillRect(x0 + x, y0, 1, h);
+      ctx.strokeStyle = 'rgba(0,0,0,0.4)';
+      ctx.lineWidth = 3;
+      ctx.strokeRect(x0 + 1.5, y0 + 1.5, w - 3, h - 3);
+    });
+  }
+  if (kind === 'round') {
+    return ATLAS.slot('lens-round', 64, 64, (ctx, x0, y0, w, h) => {
+      const cx = x0 + w / 2, cy = y0 + h / 2;
+      const g = ctx.createRadialGradient(cx, cy, 1, cx, cy, w / 2);
+      g.addColorStop(0, '#fffbea');
+      g.addColorStop(0.3, '#dcdcd4');
+      g.addColorStop(0.85, '#8e908c');
+      g.addColorStop(1, '#4f504e');
+      ctx.fillStyle = g;
+      ctx.fillRect(x0, y0, w, h);
+      ctx.strokeStyle = 'rgba(255,255,255,0.3)';
+      ctx.lineWidth = 1;
+      for (let r = 6; r < w / 2; r += 5) { ctx.beginPath(); ctx.arc(cx, cy, r, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.fillStyle = 'rgba(255,255,255,0.45)';
+      ctx.beginPath(); ctx.ellipse(cx - 9, cy - 11, 8, 4, -0.5, 0, Math.PI * 2); ctx.fill();
+    });
+  }
+  return ATLAS.slot('lens-' + kind, 64, 48, (ctx, x0, y0, w, h) => paintFlutes(ctx, x0, y0, w, h, LENS[kind] || LENS.red));
+}
+
 /* ------------------------------------------------------------ materials */
 
 export const VMAT = {
   // dusty skirt: the steppe gets onto every sill and bumper
   body: cel({ vertexColors: true, map: ATLAS.tex, grime: 0.025, dirt: 0.55, dirtH: 0.62, cache: false }),
   glass: cel({
-    vertexColors: true, transparent: true, opacity: 0.4, depthWrite: false,
+    vertexColors: true, transparent: true, opacity: 0.52, depthWrite: false,
     side: THREE.DoubleSide, grime: 0, dirt: 0, bands: 3, cache: false,
   }),
   brake: new THREE.MeshBasicMaterial({ color: 0xff2618 }),
@@ -105,11 +185,15 @@ VMAT.glass.name = 'vehicle-glass';
 
 /** Glass tints. */
 export const GLASS = {
-  clear: 0x9ab4c6,
-  tint: 0x6f8799,
-  dark: 0x4a5a66,
-  bus: 0xa9c0cc,
+  clear: 0x86a2b6,
+  tint: 0x647d90,
+  dark: 0x44545f,
+  bus: 0x97b0bd,
 };
+
+/** Window rubber and the headliner seen through the glass. */
+export const RUBBER_SEAL = 0x18191a;
+export const HEADLINER = 0xb7ae9e;
 
 /* ------------------------------------------------------------ geometry helpers */
 
@@ -134,6 +218,12 @@ function unitCyl(seg, open = false) {
     cylCache.set(k, g);
   }
   return cylCache.get(k);
+}
+
+const discCache = new Map();
+function discGeo(seg) {
+  if (!discCache.has(seg)) discCache.set(seg, new THREE.CircleGeometry(1, seg));
+  return discCache.get(seg);
 }
 
 const sphCache = new Map();
@@ -260,6 +350,33 @@ function zOffsetFromLine(p0, p1, shift) {
   };
 }
 
+/**
+ * Grow a convex polygon [[z, y], ...] by d on every edge (either winding),
+ * for the rubber seal round a window.
+ */
+export function growPoly(poly, d) {
+  let area = 0;
+  for (let i = 0; i < poly.length; i++) {
+    const a = poly[i], b = poly[(i + 1) % poly.length];
+    area += a[0] * b[1] - b[0] * a[1];
+  }
+  const sgn = area > 0 ? 1 : -1;
+  const lines = poly.map((a, i) => {
+    const b = poly[(i + 1) % poly.length];
+    const dx = b[0] - a[0], dy = b[1] - a[1];
+    const len = Math.hypot(dx, dy) || 1;
+    const nx = (dy / len) * sgn, ny = (-dx / len) * sgn;
+    return { p: [a[0] + nx * d, a[1] + ny * d], v: [dx, dy] };
+  });
+  return lines.map((l1, i) => {
+    const l0 = lines[(i + poly.length - 1) % poly.length];
+    const den = l0.v[0] * l1.v[1] - l0.v[1] * l1.v[0];
+    if (Math.abs(den) < 1e-9) return l1.p;
+    const t = ((l1.p[0] - l0.p[0]) * l1.v[1] - (l1.p[1] - l0.p[1]) * l1.v[0]) / den;
+    return [l0.p[0] + l0.v[0] * t, l0.p[1] + l0.v[1] * t];
+  });
+}
+
 /* ------------------------------------------------------------ parts */
 
 export class Parts {
@@ -355,9 +472,14 @@ export class Parts {
   }
 
   /** Textured quad (e.g. a number plate) facing +z (front -z if faceBack false). */
-  decal(w, h, uv, x, y, z, { ry = 0, rx = 0 } = {}) {
+  decal(w, h, uv, x, y, z, { ry = 0, rx = 0, rz = 0 } = {}) {
     const g = new THREE.PlaneGeometry(w, h);
-    return this.add(g, 0xffffff, this._mat(x, y, z, 1, 1, 1, rx, ry, 0), { uv });
+    return this.add(g, 0xffffff, this._mat(x, y, z, 1, 1, 1, rx, ry, rz), { uv });
+  }
+
+  /** Round textured disc of radius r facing +z (a lamp lens, a badge). */
+  disc(r, uv, x, y, z, { ry = 0, rx = 0, seg = 16 } = {}) {
+    return this.add(discGeo(seg), 0xffffff, this._mat(x, y, z, r, r, 1, rx, ry, 0), { uv });
   }
 
   /**
@@ -386,7 +508,7 @@ export class Parts {
    * A flat polygon [[z, y], ...] in a side plane at x = sgn * xAt(y),
    * extruded `depth` inward. With `holes` it becomes a frame.
    */
-  sidePanel(outline, holes, sgn, xAt, depth, color, o = {}) {
+  sidePanel(outline, holes, sgn, xAt, depth, color, { outward = false, ...o } = {}) {
     const shape = new THREE.Shape(outline.map(([z, y]) => new THREE.Vector2(z, y)));
     for (const h of holes) shape.holes.push(new THREE.Path(h.map(([z, y]) => new THREE.Vector2(z, y))));
     const g = depth > 0
@@ -396,6 +518,8 @@ export class Parts {
       const X = v.x, Y = v.y, Z = v.z;
       v.set(sgn * (xAt(Y) - Z), Y, X);
     }, sgn < 0);
+    // a flat panel faces inward as mapped; `outward` turns it to face out
+    if (outward) flipWinding(g).computeVertexNormals();
     return this.add(g, color, null, o);
   }
 
@@ -450,18 +574,28 @@ export function greenhouse(P, gh, color) {
     if (poly.length >= 3) holes.push(poly);
   }
   const pc = gh.pillarColor ?? color;
+  const seal = gh.seal ?? RUBBER_SEAL;
   for (const sgn of [1, -1]) {
     P.sidePanel(outline, holes, sgn, xAt, 0.035, pc);
     for (const h of holes) {
       P.sidePanel(h, [], sgn, (y) => xAt(y) - 0.012, 0, gh.glass ?? GLASS.clear, { glass: true });
+      // the rubber seal: a thin frame standing just proud of the pillars
+      if (seal !== null) P.sidePanel(growPoly(h, 0.016), [h], sgn, (y) => xAt(y) + 0.004, 0, seal, { outward: true });
     }
   }
-  // roof, a little crowned
+  // roof, a little crowned, with the pale headliner under it
   const roofC = gh.roofColor ?? color;
   P.span(-hwr - 0.005, yr - 0.045, zat - 0.01, hwr + 0.005, yr + 0.005, zrr + 0.01, roofC);
   P.span(-hwr + 0.08, yr + 0.004, zat + 0.08, hwr - 0.08, yr + 0.026, zrr - 0.06, roofC);
+  if (gh.headliner !== null) P.span(-hwr + 0.03, yr - 0.06, zat + 0.02, hwr - 0.03, yr - 0.045, zrr - 0.02, gh.headliner ?? HEADLINER);
   // windscreen
   const inset = 0.015;
+  const rim = (pts) => {
+    if (seal === null) return;
+    for (let i = 0; i < 4; i++) P.tube(pts[i], pts[(i + 1) % 4], 0.012, seal, { seg: 4 });
+  };
+  rim([[-xAt(yb) + inset, yb + 0.005, za + 0.01], [xAt(yb) - inset, yb + 0.005, za + 0.01],
+    [xAt(yr) - inset, yr - 0.02, zat + 0.005], [-xAt(yr) + inset, yr - 0.02, zat + 0.005]]);
   P.quad(
     [-xAt(yb) + inset, yb + 0.005, za + 0.01], [xAt(yb) - inset, yb + 0.005, za + 0.01],
     [xAt(yr) - inset, yr - 0.02, zat + 0.005], [-xAt(yr) + inset, yr - 0.02, zat + 0.005],
@@ -470,6 +604,8 @@ export function greenhouse(P, gh, color) {
   // rear glass
   if (gh.rearGlass !== false) {
     const [zt, yt] = cLineTop;
+    rim([[xAt(yc) - inset, yc + 0.01, zc - 0.01], [-xAt(yc) + inset, yc + 0.01, zc - 0.01],
+      [-xAt(yt) + inset, yt - 0.02, zt - 0.005], [xAt(yt) - inset, yt - 0.02, zt - 0.005]]);
     P.quad(
       [xAt(yc) - inset, yc + 0.01, zc - 0.01], [-xAt(yc) + inset, yc + 0.01, zc - 0.01],
       [-xAt(yt) + inset, yt - 0.02, zt - 0.005], [xAt(yt) - inset, yt - 0.02, zt - 0.005],
@@ -492,24 +628,67 @@ export function wheelGeometry(r, w, { rim = 0xb9b7b0, hub = 0xd8d6cf, style = 'c
   const key = [r, w, rim, hub, style, side, pair].join('|');
   if (wheelCache.has(key)) return wheelCache.get(key);
   const P = new Parts();
+  // Everything on the wheel face is placed in fractions of the tyre width
+  // beyond its sidewall, so a unit wheel scaled per instance looks the
+  // same as one built to size. Faces are flat and one-sided: nobody sees
+  // the inside of a hubcap.
+  const face = (x, s, k) => x + s * (w / 2 + k * w);
+  const turn = (s) => new THREE.Matrix4().makeRotationY(s > 0 ? Math.PI / 2 : -Math.PI / 2);
+  const plate = (x, s, k, rr, color, seg = 14) => {
+    const m = turn(s).premultiply(new THREE.Matrix4().makeTranslation(face(x, s, k), 0, 0));
+    m.multiply(new THREE.Matrix4().makeScale(rr, rr, 1));
+    P.add(discGeo(seg), color, m);
+  };
+  const ring = (x, s, k0, k1, rr, color, seg = 12) => {
+    P.cyl(rr, (k1 - k0) * w, color, face(x, s, (k0 + k1) / 2), 0, 0, { axis: 'x', seg, open: true });
+  };
+  // a flat mark on the wheel face (a vent hole, a slot, a nut, a spoke gap): one quad
+  const dot = (x, s, k, a, rr, hy, hz, color) => {
+    const px = face(x, s, k), cy = Math.cos(a) * rr, cz = Math.sin(a) * rr;
+    const ty = -Math.sin(a), tz = Math.cos(a);      // tangent round the wheel
+    const ry = Math.cos(a), rz = Math.sin(a);        // radial
+    const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [px, cy + ty * u * hz + ry * v * hy, cz + tz * u * hz + rz * v * hy]);
+    if (s > 0) P.quad(pts[0], pts[1], pts[2], pts[3], color); else P.quad(pts[3], pts[2], pts[1], pts[0], color);
+  };
   const one = (x, s) => {
     P.cyl(r, w, 0x262626, x, 0, 0, { axis: 'x', seg: 14 });
-    P.cyl(r * 0.8, w * 0.7, 0x1b1b1b, x + s * 0.004, 0, 0, { axis: 'x', seg: 12 });
-    if (style === 'cap') {
+    if (style === 'lada') {
+      // Zhiguli: silver steel wheel, a ring of vent holes, the chrome dome cap
+      plate(x, s, 0.03, r * 0.7, rim);
+      for (let i = 0; i < 6; i++) dot(x, s, 0.04, (i / 6) * Math.PI * 2, r * 0.5, r * 0.05, r * 0.08, 0x1e1e1e);
+      ring(x, s, 0.03, 0.12, r * 0.33, hub);
+      plate(x, s, 0.12, r * 0.33, hub, 12);
+      ring(x, s, 0.12, 0.2, r * 0.2, 0xf4f4f0, 10);
+      plate(x, s, 0.2, r * 0.2, 0xf4f4f0, 10);
+    } else if (style === 'volga') {
+      // the big chrome hubcap of a Volga, with its raised centre and badge
+      plate(x, s, 0.03, r * 0.74, rim, 16);
+      plate(x, s, 0.05, r * 0.52, 0x9a9a96);
+      ring(x, s, 0.05, 0.12, r * 0.44, hub);
+      plate(x, s, 0.12, r * 0.44, hub);
+      plate(x, s, 0.13, r * 0.12, 0x7a1d18, 8);
+    } else if (style === 'deckel') {
+      // flat slotted hubcap (a Mercedes, an Audi 100 on steel wheels)
+      plate(x, s, 0.03, r * 0.7, rim, 16);
+      for (let i = 0; i < 8; i++) dot(x, s, 0.04, (i / 8) * Math.PI * 2, r * 0.5, r * 0.035, r * 0.1, 0x303030);
+      plate(x, s, 0.06, r * 0.2, hub, 10);
+    } else if (style === 'cap') {
       // chrome hubcap of a Soviet saloon
-      P.cyl(r * 0.6, 0.02, rim, x + s * (w / 2 + 0.006), 0, 0, { axis: 'x', seg: 12 });
-      P.cyl(r * 0.22, 0.03, hub, x + s * (w / 2 + 0.018), 0, 0, { axis: 'x', seg: 8 });
+      plate(x, s, 0.03, r * 0.6, rim, 12);
+      ring(x, s, 0.03, 0.1, r * 0.22, hub, 8);
+      plate(x, s, 0.1, r * 0.22, hub, 8);
     } else if (style === 'alloy') {
-      P.cyl(r * 0.62, 0.02, rim, x + s * (w / 2 + 0.004), 0, 0, { axis: 'x', seg: 12 });
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 5) * Math.PI * 2;
-        P.box(0.02, r * 0.5, 0.05, 0x5a5a5a, x + s * (w / 2 + 0.012), Math.cos(a) * r * 0.32, Math.sin(a) * r * 0.32, { rx: a });
-      }
-      P.cyl(r * 0.14, 0.03, hub, x + s * (w / 2 + 0.016), 0, 0, { axis: 'x', seg: 8 });
+      // five spokes: dark windows between them on a silver disc
+      plate(x, s, 0.03, r * 0.62, rim, 14);
+      for (let i = 0; i < 5; i++) dot(x, s, 0.04, (i / 5 + 0.1) * Math.PI * 2, r * 0.38, r * 0.16, r * 0.13, 0x3a3a3a);
+      plate(x, s, 0.06, r * 0.14, hub, 8);
     } else {
-      // plain steel wheel (trucks, buses, Niva): painted disc with holes as dots
-      P.cyl(r * 0.66, 0.02, rim, x + s * (w / 2 + 0.004), 0, 0, { axis: 'x', seg: 12 });
-      P.cyl(r * 0.25, 0.06, hub, x + s * (w / 2 + 0.02), 0, 0, { axis: 'x', seg: 8 });
+      // plain steel wheel (trucks, buses, Niva): painted disc, hand holes, hub and nuts
+      plate(x, s, 0.03, r * 0.66, rim);
+      for (let i = 0; i < 4; i++) dot(x, s, 0.04, (i / 4) * Math.PI * 2 + Math.PI / 4, r * 0.46, r * 0.07, r * 0.07, 0x1e1e1e);
+      ring(x, s, 0.03, 0.14, r * 0.25, hub, 8);
+      plate(x, s, 0.14, r * 0.25, hub, 8);
+      for (let i = 0; i < 6; i++) dot(x, s, 0.15, (i / 6) * Math.PI * 2, r * 0.17, r * 0.028, r * 0.028, 0x8a8a86);
     }
   };
   if (pair) { one(pair, 1); one(-pair, -1); } else one(0, side);

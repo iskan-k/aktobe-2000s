@@ -6,7 +6,8 @@ import { ATLAS, fitText } from '../kit.js';
  * The route vehicles of Aktobe in the mid-2000s.
  *
  *   ikarus260  the Hungarian city bus every Soviet town had: ochre
- *              yellow with a cream roof, four round lamps in a black
+ *              yellow with a red waist stripe and a cream roof, four
+ *              round lamps in a black
  *              mask, three pairs of folding doors
  *   manSL202   a used German city bus in its old cream livery with a
  *              green band and the German operator's name still on it,
@@ -20,6 +21,7 @@ import { ATLAS, fitText } from '../kit.js';
 
 const OCHRE = 0xd9a63a;
 const CREAM = 0xe8e2cf;
+const IK_RED = 0xb8322a;
 const ZIU_CREAM = 0xede9da;
 const ZIU_RED = 0xc8282e;
 const BTZ_BLUE = 0x1e56c8;
@@ -44,10 +46,13 @@ export const ikarus260 = {
   wsBottom: 1.12, wsTop: 2.6, rake: 0.14,
   color: OCHRE,
   bands: [
-    { y0: 0.36, y1: 1.2, color: OCHRE },
-    { y0: 1.2, y1: 1.3, color: CREAM },
-    { y0: 1.3, y1: 1.5, color: OCHRE },
+    { y0: 0.36, y1: 1.16, color: OCHRE },
+    { y0: 1.16, y1: 1.2, color: CREAM },
+    { y0: 1.2, y1: 1.3, color: IK_RED },
+    { y0: 1.3, y1: 1.34, color: CREAM },
+    { y0: 1.34, y1: 1.5, color: OCHRE },
   ],
+  frontBands: [{ y0: 1.2, y1: 1.3, color: IK_RED }],
   upperColor: CREAM, roofColor: CREAM,
   doors: [
     { z0: -5.28, z1: -4.1, kind: 'fold' },

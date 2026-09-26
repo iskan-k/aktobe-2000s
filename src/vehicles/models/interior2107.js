@@ -44,6 +44,8 @@ export function buildInterior2107(model, a, gh) {
   doorCards(P, a);
   centreConsole(P, a);
   roofBits(P, a, gh);
+  pillarTrims(P, a, gh);
+  dashTouches(P, a);
   P.flush(interior);
   for (const m of interior.children) { m.castShadow = false; m.receiveShadow = false; }
   interior.add(cluster(a, motion));
@@ -198,6 +200,65 @@ function roofBits(P, a, gh) {
   P.box(0.016, 0.04, 0.016, 0x1c1c1c, 0, yTop - 0.045, zTop + 0.04);
   P.box(0.2, 0.06, 0.028, 0x1c1c1c, 0, yTop - 0.085, zTop + 0.045);
   P.box(0.18, 0.045, 0.004, 0x8fa3b0, 0, yTop - 0.085, zTop + 0.06);
+}
+
+/** Dark plastic over the A pillars, and the beige headliner's front edge. */
+function pillarTrims(P, a, gh) {
+  const [zb, yb] = gh.aBase, [zt, yt] = gh.aTop;
+  const xAt = (y) => gh.hwBelt - ((y - yb) / (yt - yb)) * (gh.hwBelt - gh.hwRoof);
+  for (const s of [-1, 1]) {
+    P.tube([s * (xAt(yb) - 0.05), yb + 0.02, zb + 0.07], [s * (xAt(yt) - 0.05), yt - 0.05, zt + 0.06], 0.035, 0x2c2a28, { seg: 5 });
+  }
+  P.span(-gh.hwRoof + 0.05, yt - 0.075, zt + 0.02, gh.hwRoof - 0.05, yt - 0.05, zt + 0.12, 0xa8a090);
+}
+
+/*
+ * What a driver puts on a семёрка dash: a strip of fake fur along the
+ * top, a folded paper icon card by the screen, a box of matches.
+ */
+function dashTouches(P, a) {
+  const { belt, dashZ } = a;
+  const fur = furUV();
+  P.decal(0.9, 0.2, fur, 0.12, belt + 0.03, dashZ + 0.16, { rx: -Math.PI / 2 + 0.12 });
+  // the little folding icon: three gilt panels standing on the dash
+  const icon = iconUV();
+  for (const [dx, ry] of [[-0.05, 0.5], [0, 0], [0.05, -0.5]]) {
+    P.decal(0.05, 0.07, icon, 0.28 + dx, belt + 0.07, dashZ + 0.12 + Math.abs(dx) * 0.3, { ry: -ry });
+  }
+  P.box(0.05, 0.015, 0.035, 0xc8a24a, 0.45, belt + 0.035, dashZ + 0.22, { ry: 0.4 });
+}
+
+/** Grey-brown fake fur, as a texture in the shared atlas. */
+function furUV() {
+  return ATLAS.slot('dash-fur', 128, 32, (ctx, x0, y0, w, h) => {
+    ctx.fillStyle = '#6e6154';
+    ctx.fillRect(x0, y0, w, h);
+    for (let i = 0; i < 420; i++) {
+      const x = x0 + ((i * 37) % w), y = y0 + ((i * 53) % h);
+      ctx.strokeStyle = i % 3 ? 'rgba(170,150,125,0.55)' : 'rgba(40,32,26,0.5)';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(x, y);
+      ctx.lineTo(x + ((i % 5) - 2), y + 3);
+      ctx.stroke();
+    }
+  });
+}
+
+/** A small printed icon card: gilt border, a dark figure, a halo. */
+function iconUV() {
+  return ATLAS.slot('dash-icon', 40, 56, (ctx, x0, y0, w, h) => {
+    ctx.fillStyle = '#c9a24a';
+    ctx.fillRect(x0, y0, w, h);
+    ctx.fillStyle = '#6a2a1e';
+    ctx.fillRect(x0 + 4, y0 + 4, w - 8, h - 8);
+    ctx.fillStyle = '#e6c56a';
+    ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + 18, 9, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#d9b48a';
+    ctx.beginPath(); ctx.arc(x0 + w / 2, y0 + 18, 5, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = '#2a3a5a';
+    ctx.fillRect(x0 + w / 2 - 8, y0 + 26, 16, 22);
+  });
 }
 
 /* ---------------- animated parts ---------------- */
