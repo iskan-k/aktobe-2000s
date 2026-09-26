@@ -12,6 +12,7 @@ import { addTree } from '../props/trees.js';
 import { addPlot, fenceRun } from '../buildings/house.js';
 import { frame, tbox, TILES, KIT } from '../buildings/houseKit.js';
 import '../buildings/houseSounds.js';
+import { addDog } from '../props/fauna/dog.js';
 
 /* ------------------------------------------------------------------ *
  * District: the private sector (частный сектор) between ул. Пушкина and
@@ -76,7 +77,11 @@ function buildSector(ctx) {
   lane(ctx);
   poles(ctx, plots, rng);
   standpipe(ctx, -138.4, -59.5);
-  yardDog(ctx, plots.find((p) => p.row === 'laneS' && p.result.houseLeft !== undefined && !p.special), rng);
+  // guard dogs behind a few of the gates, a big one on the lane
+  const guarded = plots.filter((p) => p.result.houseLeft !== undefined && p.result.gateWorld && !p.special);
+  const lanePlot = guarded.find((p) => p.row === 'laneS');
+  const picks = [lanePlot, ...guarded.filter((p) => p !== lanePlot && p.seed % 3 === 1)].filter(Boolean).slice(0, 4);
+  picks.forEach((p, i) => yardDog(ctx, p, rng, YARD_DOGS[i % YARD_DOGS.length]));
   gasCrossing(ctx);
 
   // cars by the gates on the lane
@@ -266,107 +271,48 @@ function standpipe(ctx, x, z) {
   });
 }
 
-/* ------------------------------------------------------------------ the dog */
+/* ------------------------------------------------------------------ the dogs */
 
-function yardDog(ctx, p, rng) {
+const YARD_DOGS = [
+  { build: 'alabai', coat: 'fawn', name: 'Алабай' },
+  { build: 'tobet', coat: 'white', name: 'Тобет' },
+  { build: 'mongrel', coat: 'blackTan', name: 'Шарик' },
+  { build: 'mongrel', coat: 'shepherd', name: 'Мухтар' },
+];
+
+/** A kennel in the yard behind the gate, and its dog on a chain. */
+function yardDog(ctx, p, rng, kind) {
   if (!p) return;
-  const { batch, root } = ctx;
+  const { batch } = ctx;
   const L = p.result.L;
-  // the kennel in the yard behind the gate, toward the fence so you see it
+  // the kennel toward the fence, so you see it through the gate
+  const big = kind.build !== 'mongrel';
   const kx = p.result.gateLocal + 2.3, kz = 3.2;
   const k = L(kx, kz);
-  tbox(batch, KIT.boards, TILES.boards, 1.0, 0.8, 1.2, 0x8a6a4a, k[0], 0, k[1], p.ry);
-  batch.box(1.25, 0.05, 1.4, 0x6e6a64, k[0], 0.95, k[1], { ry: p.ry, rz: 0.35 });
-  const door = L(kx, kz - 0.61);
-  batch.box(0.42, 0.5, 0.02, 0x1d1a16, door[0], 0.05, door[1], { ry: p.ry });
-  ctx.colliders.obb(k[0], k[1], 0.55, 0.65, p.ry, { top: 0.9, tag: 'kennel' });
+  const kw = big ? 1.2 : 1.0, kd = big ? 1.4 : 1.2;
+  tbox(batch, KIT.boards, TILES.boards, kw, big ? 0.95 : 0.8, kd, 0x8a6a4a, k[0], 0, k[1], p.ry);
+  batch.box(kw + 0.25, 0.05, kd + 0.2, 0x6e6a64, k[0], big ? 1.1 : 0.95, k[1], { ry: p.ry, rz: 0.35 });
+  const door = L(kx, kz - kd / 2 - 0.01);
+  batch.box(0.46, 0.55, 0.02, 0x1d1a16, door[0], 0.05, door[1], { ry: p.ry });
+  ctx.colliders.obb(k[0], k[1], kw / 2 + 0.05, kd / 2 + 0.05, p.ry, { top: 0.9, tag: 'kennel' });
+  // a battered bowl by the door
+  const bowl = L(kx + 0.55, kz - kd / 2 - 0.35);
+  batch.cyl(0.13, 0.07, 0x8a8a86, bowl[0], 0, bowl[1], { rTop: 0.15, seg: 10 });
 
-  const dogPos = L(kx, kz - 1.3);
-  // the chain, from a staple by the kennel door to the collar
-  batch.tube(door[0], 0.12, door[1], dogPos[0], 0.5, dogPos[1], 0.012, 0x6a6a66, { seg: 3, cast: false });
-  const dog = makeDog(rng);
-  dog.position.set(dogPos[0], 0, dogPos[1]);
-  dog.rotation.y = p.ry;
-  root.add(dog);
-  ctx.colliders.circle(dogPos[0], dogPos[1], 0.45, { tag: 'dog' });
-
-  let barkT = 0, alert = 0, jump = 0;
-  const head = dog.userData.head, tail = dog.userData.tail;
-  ctx.update((dt, game) => {
-    const pp = game.player.pos;
-    const d = Math.hypot(pp.x - dogPos[0], pp.z - dogPos[1]);
-    const near = d < 9 && !game.controller;
-    alert += ((near ? 1 : 0) - alert) * (1 - Math.exp(-4 * dt));
-    barkT -= dt;
-    if (near && barkT <= 0) {
-      game.audio.play('bark', { pos: { x: dogPos[0], y: 0.6, z: dogPos[1] } });
-      barkT = 1.2 + Math.random() * 1.6;
-      jump = 1;
-    }
-    jump = Math.max(0, jump - dt * 4);
-    // lies with its head down, stands up and yaps when you come close
-    dog.userData.body.position.y = 0.34 + alert * 0.12 + Math.sin(jump * Math.PI) * 0.06;
-    head.rotation.x = -0.35 + alert * 0.55 - Math.sin(jump * Math.PI) * 0.25;
-    tail.rotation.x = 0.5 + Math.sin(game.time * (alert > 0.5 ? 14 : 3)) * 0.4;
-    // turn toward you
-    if (near) {
-      const want = Math.atan2(-(pp.x - dogPos[0]), -(pp.z - dogPos[1]));
-      let dy = want - dog.rotation.y;
-      dy = Math.atan2(Math.sin(dy), Math.cos(dy));
-      dog.rotation.y += dy * (1 - Math.exp(-3 * dt));
-    }
+  const dogPos = L(kx - 0.2, kz - kd / 2 - 1.1);
+  // the dog faces the gate (toward the lane)
+  const dog = addDog(ctx, dogPos[0], dogPos[1], p.ry + (rng.next() - 0.5) * 0.6, {
+    build: kind.build, coat: kind.coat, mode: 'chain', chain: { x: door[0], z: door[1], len: 2.4 },
   });
+  ctx.colliders.circle(door[0], door[1], 0.2, { tag: 'post' });
   ctx.interact({
-    x: dogPos[0], y: 0.5, z: dogPos[1], w: 1.2, h: 1, d: 1.2,
+    x: dogPos[0], y: 0.6, z: dogPos[1], w: 1.6, h: 1.2, d: 1.6,
     label: 'Say hello to the dog',
     action: (game) => {
-      game.audio.play('bark', { pos: { x: dogPos[0], y: 0.6, z: dogPos[1] }, rate: 1.15 });
-      game.hud.flash('Шарик is not interested in friendship. He is on duty.');
+      game.audio.play('bark', { pos: { x: dog.x, y: 0.6, z: dog.z }, rate: big ? 0.75 : 1.1 });
+      game.hud.flash(`${kind.name} is not interested in friendship. He is on duty.`);
     },
   });
-}
-
-/**
- * A yard mongrel in black and tan, built from boxes; faces local -z.
- * Body, head and tail are one merged mesh each, so the dog costs three
- * draw calls, not thirteen.
- */
-function makeDog(rng) {
-  const g = new THREE.Group();
-  const coat = rng.pick([0x3a2a20, 0x7a5232, 0x2a2624]);
-  const tan = 0xb07a44;
-  const part = (parent, build) => {
-    const b = new Batch({ name: 'dog', cell: Infinity });
-    build(b);
-    b.flush(parent);
-  };
-  const body = new THREE.Group();
-  body.position.y = 0.34;
-  g.add(body);
-  // Batch boxes are base-anchored, so y below is each box's bottom face
-  part(body, (b) => {
-    b.box(0.34, 0.3, 0.72, coat, 0, -0.15, 0);
-    b.box(0.28, 0.2, 0.2, tan, 0, -0.18, -0.3);
-    for (const [sx, sz] of [[-1, -1], [1, -1], [-1, 1], [1, 1]]) {
-      b.box(0.08, 0.34, 0.08, sz < 0 ? tan : coat, sx * 0.11, -0.47, sz * 0.26);
-    }
-  });
-  const head = new THREE.Group();
-  head.position.set(0, 0.16, -0.4);
-  body.add(head);
-  part(head, (b) => {
-    b.box(0.24, 0.22, 0.26, coat, 0, -0.11, -0.08);
-    b.box(0.14, 0.12, 0.16, tan, 0, -0.1, -0.27);
-    b.box(0.06, 0.05, 0.03, 0x111111, 0, -0.025, -0.36);
-    for (const s of [-1, 1]) b.add(new THREE.ConeGeometry(0.06, 0.14, 4).translate(s * 0.08, 0.15, -0.05), { color: coat });
-  });
-  const tail = new THREE.Group();
-  tail.position.set(0, 0.1, 0.36);
-  body.add(tail);
-  part(tail, (b) => b.box(0.05, 0.05, 0.3, coat, 0, -0.025, 0.14));
-  g.traverse((o) => { if (o.isMesh) o.castShadow = true; });
-  g.userData = { body, head, tail };
-  return g;
 }
 
 /* ------------------------------------------------------------------ specials */

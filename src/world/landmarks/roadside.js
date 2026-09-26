@@ -5,7 +5,8 @@ import { canvasTex, cached, centerText, FONT, weather } from '../../core/texture
 import { rngKit } from '../../core/util.js';
 import { defineLoop } from '../../core/audio.js';
 import { letters } from '../buildings/landmarks.js';
-import { Sculpt, STONE, plaqueTex, panel, plaque, graniteBlock } from './kit.js';
+import { addHorse } from '../props/fauna/horse.js';
+import { STONE, plaqueTex, panel, plaque, graniteBlock } from './kit.js';
 
 /* ------------------------------------------------------------------ *
  * Summer at the edge of town, on ул. Маресьева, east of the garages.
@@ -16,7 +17,8 @@ import { Sculpt, STONE, plaqueTex, panel, plaque, graniteBlock } from './kit.js'
  *                  ferroalloy works, wheat) and АҚТӨБЕ on top
  *   the kumys yurt a felt киіз үй with a painted door, a table of jars
  *                  and bottles under a tarp, a hand-painted sign, a mare
- *                  grazing and her foal on the tether line (желі)
+ *                  grazing and her foal on the tether line (желі), and
+ *                  a rider's saddled horse at the rail
  *   the shashlyk   a sheet-metal pavilion, a smoking mangal, white
  *   café           plastic chairs and beer umbrellas
  *
@@ -427,46 +429,25 @@ function yurt(ctx) {
   b.cyl(0.5, 0.06, 0x3a342e, kx, -0.02, kz, { seg: 10 });
   colliders.circle(kx, kz, 0.6, { top: 1.0, tag: 'kazan' });
 
-  // the mare grazing, and her foal tied on the желі line
-  horse(b, x + 8, z + 2, 2.3, 1, 0x7a4a2a, 0x3a2418, true);
-  horse(b, x + 9.5, z + 7.5, 0.4, 0.66, 0x8a5a36, 0x4a2e1c, false);
-  colliders.circle(x + 8, z + 2, 1.3, { top: 1.8, tag: 'horse' });
-  colliders.circle(x + 9.5, z + 7.5, 0.8, { top: 1.2, tag: 'horse' });
+  // the mare grazing on her stake, and her foal tied on the желі line
+  addHorse(ctx, x + 8, z + 2, 2.3, { coat: 'bay', mode: 'graze', tether: { x: x + 8.6, z: z + 3.4, len: 2.2 } });
+  addHorse(ctx, x + 9.5, z + 7.5, 0.4, { coat: 'chestnut', mode: 'stand', s: 0.66 });
+  b.cyl(0.04, 0.35, 0x6a5a44, x + 8.6, 0, z + 3.4, { seg: 5 });
+  // and a rider's horse, saddled, tied at a rail by the kumys table
+  const rx = x - 8.2, rz = z - 8.6;
+  for (const px of [rx - 1.2, rx + 1.2]) {
+    b.cyl(0.06, 1.1, 0x7a6a50, px, 0, rz - 1.2, { seg: 6 });
+    colliders.circle(px, rz - 1.2, 0.08, { tag: 'post' });
+  }
+  b.tube(rx - 1.3, 1.0, rz - 1.2, rx + 1.3, 1.0, rz - 1.2, 0.045, 0x8a7a5a, { seg: 6 });
+  addHorse(ctx, rx, rz + 0.1, 0.25, { coat: 'dun', mode: 'stand', tack: 'saddle' });
+  b.tube(rx + 0.2, 1.0, rz - 1.2, rx - 0.15, 0.95, rz - 1.25 + 1.0, 0.01, 0x3a3228, { seg: 3, cast: false });
   const line = [[x + 5, z + 9], [x + 14, z + 9]];
   for (const [px, pz] of line) b.cyl(0.05, 0.9, 0x6a5a44, px, 0, pz, { seg: 5 });
   b.tube(line[0][0], 0.35, line[0][1], line[1][0], 0.35, line[1][1], 0.012, 0x3a3228, { seg: 3, cast: false });
   b.tube(x + 9.9, 0.35, z + 9, x + 9.6, 0.95, z + 7.1, 0.01, 0x3a3228, { seg: 3, cast: false });
   // an old UAZ belongs to the family that keeps the yurt
   ctx.parking.push({ x: x - 7.5, z: z + 1, ry: 0.35, kind: 'uaz469', chance: 1 });
-}
-
-/**
- * A horse at life size, front toward -z before `ry`. `graze` drops the
- * head to the grass. Same construction as the monument horse, plainer.
- */
-function horse(b, x, z, ry, scale, coat, mane, graze) {
-  const s = new Sculpt(b, x, 0, z, ry, scale);
-  s.ball([0, 1.3, 0], [0.4, 0.44, 0.9], coat);
-  s.ball([0, 1.38, -0.66], [0.38, 0.46, 0.44], coat);
-  s.ball([0, 1.42, 0.68], [0.42, 0.44, 0.46], coat);
-  const poll = graze ? [0, 0.72, -1.55] : [0, 2.05, -1.2];
-  const muzzle = graze ? [0, 0.22, -1.62] : [0, 1.8, -1.6];
-  s.limb([0, 1.5, -0.8], poll, 0.3, 0.18, coat);
-  s.ball(poll, 0.19, coat);
-  s.limb(poll, muzzle, 0.17, 0.1, coat);
-  s.ball(muzzle, [0.11, 0.1, 0.13], coat);
-  s.box(0.07, 0.12, 0.7, [0, (1.5 + poll[1]) / 2 + 0.2, (-0.8 + poll[2]) / 2], mane, [graze ? -0.5 : 0.7, 0, 0]);
-  for (const [a, k, h] of [
-    [[-0.22, 1.1, -0.7], [-0.23, 0.6, -0.72], [-0.22, 0.08, -0.74]],
-    [[0.22, 1.1, -0.7], [0.23, 0.6, -0.66], [0.22, 0.08, -0.6]],
-    [[-0.23, 1.2, 0.72], [-0.25, 0.62, 0.88], [-0.23, 0.08, 0.78]],
-    [[0.23, 1.2, 0.72], [0.25, 0.62, 0.9], [0.23, 0.08, 0.84]],
-  ]) {
-    s.limb(a, k, 0.14, 0.08, coat);
-    s.limb(k, h, 0.065, 0.055, coat);
-    s.limb([h[0], 0, h[2]], [h[0], 0.1, h[2]], 0.08, 0.065, 0x2a221c, 7);
-  }
-  s.limb([0, 1.55, 1.1], [0, 0.75, 1.32], 0.09, 0.05, mane);
 }
 
 /* ---------------- the shashlyk café ---------------- */
