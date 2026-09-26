@@ -71,10 +71,17 @@ export function addBin(batch, x, z, facing = 0, y = 0) {
 }
 
 /**
+ * Every bench placed, for the cats that sleep on them:
+ * { x, y, z, facing, len, style } with y the ground under it.
+ */
+export const BENCHES = [];
+
+/**
  * Park / courtyard bench: concrete or cast-iron legs with painted slats.
  * `style` 'park' has a backrest, 'yard' is the plain backless kind.
  */
 export function addBench(batch, x, z, facing = 0, { y = 0, style = 'park', color = PAL.greenPaint, len = 1.9 } = {}) {
+  BENCHES.push({ x, y, z, facing, len, style });
   const legs = style === 'park' ? PAL.metalDark : PAL.concrete;
   for (const s of [-1, 1]) {
     const [lx, lz] = at(x, z, s * (len / 2 - 0.15), 0, facing);

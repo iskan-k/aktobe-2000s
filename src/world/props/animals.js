@@ -2,12 +2,12 @@ import * as THREE from 'three';
 import { MAT } from '../../core/toon.js';
 import { rngKit, damp, clamp, mulberry32 } from '../../core/util.js';
 import { KERB_H } from '../plan.js';
+import { addDog as addRiggedDog } from './fauna/dog.js';
 
 /* ------------------------------------------------------------------ *
  * The town's animals.
  *
- *   dogs      strays asleep in the shade. Come close and one lifts its
- *             head and thumps its tail; E to pet it.
+ *   dogs      strays asleep in the shade (the rig is in fauna/dog.js).
  *   pigeons   flocks on the pavements by the stops and kiosks. They
  *             walk, peck and bob, clatter up when you come too close (or
  *             when you press E), circle over the avenue and land again.
@@ -15,7 +15,7 @@ import { KERB_H } from '../plan.js';
  *             flick when you step near.
  *
  * Pigeons and sparrows are instanced (three draw calls for every pigeon
- * in town, one for the sparrows); each dog is three small meshes.
+ * in town, one for the sparrows).
  * ------------------------------------------------------------------ */
 
 const _m = new THREE.Matrix4();
@@ -82,108 +82,14 @@ function merge(parts) {
 }
 
 /* ------------------------------------------------------------------ *
- * Dogs
+ * Dogs (the rigged dog lives in fauna/dog.js)
  * ------------------------------------------------------------------ */
 
-const COATS = [
-  { main: 0xb8743a, light: 0xe2b886, dark: 0x6a3e1e },  // ginger
-  { main: 0x2c2826, light: 0xe8e2d6, dark: 0x1a1816 },  // black with a white chest
-  { main: 0x8c8276, light: 0xc8bfae, dark: 0x5a5248 },  // grey
-];
+const STREET_COATS = ['ginger', 'blackWhite', 'grey'];
 
-function dogParts(coat) {
-  const body = merge([
-    ell(0.19, 0.17, 0.4, 0, 0.18, 0.06, coat.main),
-    ell(0.17, 0.19, 0.2, 0, 0.21, -0.24, coat.light),
-    ell(0.08, 0.12, 0.17, -0.13, 0.13, 0.26, coat.main),
-    ell(0.08, 0.12, 0.17, 0.13, 0.13, 0.26, coat.main),
-    bx(0.07, 0.07, 0.32, -0.08, 0.035, -0.44, coat.light),
-    bx(0.07, 0.07, 0.32, 0.08, 0.035, -0.44, coat.light),
-    ell(0.05, 0.03, 0.06, -0.08, 0.03, -0.6, coat.light, 6),
-    ell(0.05, 0.03, 0.06, 0.08, 0.03, -0.6, coat.light, 6),
-  ]);
-  const head = merge([
-    ell(0.12, 0.11, 0.13, 0, 0.03, -0.08, coat.main),
-    ell(0.065, 0.06, 0.1, 0, -0.01, -0.21, coat.light, 8),
-    ell(0.025, 0.02, 0.02, 0, 0.02, -0.3, 0x111111, 6),
-    bx(0.05, 0.1, 0.03, -0.075, 0.12, -0.04, coat.dark, 0, 0, 0.35),
-    bx(0.05, 0.1, 0.03, 0.075, 0.12, -0.04, coat.dark, 0, 0, -0.35),
-    bx(0.022, 0.012, 0.01, -0.05, 0.06, -0.18, 0x111111),
-    bx(0.022, 0.012, 0.01, 0.05, 0.06, -0.18, 0x111111),
-  ]);
-  const tail = merge([
-    (() => {
-      const g = new THREE.CylinderGeometry(0.018, 0.035, 0.3, 6);
-      g.rotateX(Math.PI / 2);
-      g.translate(0, 0, 0.15);
-      return paint(g, coat.main);
-    })(),
-  ]);
-  return { body, head, tail };
-}
-
-/**
- * A stray asleep at (x, z), facing yaw. Returns the updater state; the
- * caller does not need it.
- */
+/** A stray asleep on the pavement at (x, z), facing yaw. */
 export function addDog(ctx, x, z, yaw, coatIndex = 0, y = KERB_H) {
-  const coat = COATS[coatIndex % COATS.length];
-  const parts = dogParts(coat);
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  g.rotation.y = yaw;
-  const body = new THREE.Mesh(parts.body, MAT.solid);
-  const headPivot = new THREE.Group();
-  headPivot.position.set(0, 0.3, -0.34);
-  const head = new THREE.Mesh(parts.head, MAT.solid);
-  headPivot.add(head);
-  const tailPivot = new THREE.Group();
-  tailPivot.position.set(0, 0.2, 0.44);
-  const tail = new THREE.Mesh(parts.tail, MAT.solid);
-  tailPivot.add(tail);
-  g.add(body, headPivot, tailPivot);
-  g.traverse((o) => { if (o.isMesh) { o.castShadow = true; o.receiveShadow = true; } });
-  ctx.root.add(g);
-  ctx.colliders.obb(x, z, 0.3, 0.55, yaw, { top: y + 0.4, tag: 'dog' });
-
-  const st = { t: coatIndex * 3.7, awake: 0, happy: 0, lastWoof: -10 };
-  ctx.interact({
-    x, y: y + 0.35, z, w: 0.9, h: 0.7, d: 1.3, ry: yaw,
-    label: 'Pet the dog',
-    action: (game) => {
-      st.happy = 3.5;
-      game.audio.play('whine', { pos: { x, y: 0.4, z } });
-      const lines = ['Good dog. It thumps its tail on the pavement.', 'Хорошая собака! It leans into your hand.', 'It sighs and goes back to sleep, happy.'];
-      game.hud.flash(lines[Math.floor(rand() * lines.length)], 2400);
-    },
-  });
-
-  ctx.update((dt, game) => {
-    st.t += dt;
-    const p = game.controller ? game.camera.position : game.player.pos;
-    const d = Math.hypot(p.x - x, p.z - z);
-    if (d > 40) return;
-    const near = d < 5.5;
-    st.awake = damp(st.awake, near || st.happy > 0 ? 1 : 0, near ? 2.5 : 0.6, dt);
-    st.happy = Math.max(0, st.happy - dt);
-    // breathing
-    body.scale.y = 1 + Math.sin(st.t * (1.6 + st.awake)) * 0.025;
-    // resting chin on paws, head up when awake, looking toward you
-    const look = Math.atan2(-(p.x - x), -(p.z - z)) - yaw;
-    headPivot.rotation.x = -0.42 + st.awake * 0.5;
-    headPivot.rotation.y = clamp(Math.atan2(Math.sin(look), Math.cos(look)), -0.8, 0.8) * st.awake;
-    headPivot.position.y = 0.26 + st.awake * 0.06;
-    const wag = st.happy > 0 ? 1.0 : st.awake * 0.55;
-    const rate = st.happy > 0 ? 11 : 6;
-    tailPivot.rotation.y = Math.sin(st.t * rate) * wag;
-    tailPivot.rotation.x = 0.55 * (1 - st.awake) - 0.3 * st.awake;
-    // a sleepy woof now and then if you walk right up
-    if (d < 2.2 && st.t - st.lastWoof > 12 && st.happy <= 0) {
-      st.lastWoof = st.t;
-      game.audio.play('woof', { pos: { x, y: 0.4, z }, rate: 1 + coatIndex * 0.1 });
-    }
-  });
-  return st;
+  return addRiggedDog(ctx, x, z, yaw, { coat: STREET_COATS[coatIndex % STREET_COATS.length], mode: 'sleep', y, curl: coatIndex === 1 });
 }
 
 /* ------------------------------------------------------------------ *
@@ -223,6 +129,8 @@ const MAX_PIGEONS = 96;
 const SCARE_WALK = 1.9;   // metres from the nearest pigeon
 const SCARE_RUN = 4.5;
 const MAX_SPARROWS = 36;
+// the sparrow model is drawn a size up; this brings it to a real 15 cm bird
+const SPARROW_SCALE = 0.75;
 
 // one bird system per world build
 const SYSTEMS = new WeakMap();
@@ -518,7 +426,7 @@ function stepBirds(sys, dt, game) {
     _p.set(s.x, g.y + s.h, s.z);
     _e.set(s.hop > 0 ? -0.2 : 0.15 * Math.sin(s.t * 20), s.yaw, 0, 'YXZ');
     _q.setFromEuler(_e);
-    _s.setScalar(visible ? 1 : 0);
+    _s.setScalar(visible ? SPARROW_SCALE : 0);
     _m.compose(_p, _q, _s);
     sys.sparrowMesh.setMatrixAt(s.i, _m);
   }

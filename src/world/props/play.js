@@ -8,6 +8,7 @@ import { TILE, SURF, hQuad } from '../../core/surfaces.js';
 import { defineVoice } from '../../core/audio.js';
 import { addBench } from './street.js';
 import { frame, boxOf, groundOf } from './yard.js';
+import { addCat as addRiggedCat } from './fauna/cat.js';
 
 /* ------------------------------------------------------------------ *
  * Courtyard things you can play with: the old metal playground with its
@@ -572,60 +573,10 @@ export function addCarpetFrame(ctx, x, z, facing = 0, { carpet = true, seed = 9 
 
 /* ---------------- the cat ---------------- */
 
-/**
- * A courtyard cat, sitting on a garage roof or a bench, looking about;
- * E makes it turn to you and meow.
- */
+/** Old callers pass a colour; the rigged cat (fauna/cat.js) takes a coat. */
+const CAT_BY_COLOR = { 0xd08a3a: 'ginger', 0x2a2624: 'black', 0x8e8a80: 'greyTabby', 0xece8e0: 'white' };
+
+/** A courtyard cat, sitting on a garage roof or a bench, looking about. */
 export function addCat(ctx, x, y, z, facing = 0, color = 0xd08a3a) {
-  const g = new THREE.Group();
-  g.position.set(x, y, z);
-  g.rotation.y = facing;
-  ctx.root.add(g);
-  g.updateMatrixWorld();
-  const cream = 0xf2e8d8;
-  // the body never moves: it goes into the static batch
-  const body = new THREE.SphereGeometry(0.16, 10, 8);
-  body.scale(1, 1.15, 1.5);
-  body.translate(0, 0.17, 0.05);
-  ctx.batch.add(body.applyMatrix4(g.matrixWorld), { color });
-  ctx.batch.add(placed(new THREE.SphereGeometry(0.1, 8, 6), 0, 0.2, -0.12).applyMatrix4(g.matrixWorld), { color: cream });
-  // head and tail turn, each one mesh
-  const skull = new THREE.SphereGeometry(0.1, 10, 8);
-  skull.scale(1.1, 0.95, 1);
-  const headParts = [[skull, color], [placed(new THREE.SphereGeometry(0.04, 6, 4), 0, -0.025, -0.085), cream]];
-  for (const s of [-1, 1]) {
-    headParts.push([placed(new THREE.ConeGeometry(0.035, 0.08, 4), s * 0.055, 0.09, 0, 0, 0, -s * 0.25), color]);
-    headParts.push([placed(new THREE.SphereGeometry(0.014, 6, 4), s * 0.04, 0.02, -0.09), 0x9ab83a]);
-  }
-  const headG = coloured(headParts);
-  headG.position.set(0, 0.38, -0.14);
-  // the tail curls round the paws, still
-  ctx.batch.add(placed(new THREE.CylinderGeometry(0.022, 0.03, 0.34, 5), 0.12, 0.04, 0.12, Math.PI / 2, 0.9, 0).applyMatrix4(g.matrixWorld), { color });
-  g.add(headG);
-  const st = { look: 0, t: 0, meowT: 0 };
-  const tmp = new THREE.Vector3();
-  ctx.update((dt, game) => {
-    st.t += dt;
-    st.meowT -= dt;
-    let target = Math.sin(st.t * 0.21) * 0.4;
-    if (st.meowT > 0) {
-      // turn the head toward the camera
-      tmp.copy(game.camera.position).sub(g.position);
-      const a = Math.atan2(-tmp.x, -tmp.z) - facing;
-      target = clamp(Math.atan2(Math.sin(a), Math.cos(a)), -1.2, 1.2);
-    }
-    st.look = damp(st.look, target, 4, dt);
-    headG.rotation.y = st.look;
-    headG.rotation.x = st.meowT > 0 ? -0.2 : 0.05;
-  });
-  ctx.colliders.circle(x, z, 0.25, { top: y + 0.3, bottom: y - 0.1, tag: 'cat' });
-  ctx.interact({
-    x, y: y + 0.25, z, w: 0.6, h: 0.6, d: 0.7,
-    label: 'Pet the cat (кис-кис)',
-    action: (game) => {
-      st.meowT = 2.5;
-      game.audio.play('meow', { pos: { x, y: y + 0.3, z } });
-      game.hud.flash('мяу');
-    },
-  });
+  return addRiggedCat(ctx, x, y, z, facing, { coat: CAT_BY_COLOR[color] || 'ginger', mode: 'sit' });
 }

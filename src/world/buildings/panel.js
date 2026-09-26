@@ -75,6 +75,13 @@ const SILL_GEO = (() => {
 })();
 
 /**
+ * Ledges a cat might sit on, filled as blocks are built: entrance
+ * canopy tops and ground-floor window sills, each { x, y, z, yaw } with
+ * yaw facing out from the wall.
+ */
+export const PERCHES = { canopies: [], sills: [] };
+
+/**
  * Collects textured quads per material and adds each set to the batch
  * as one geometry. Quads are given in the building's local frame.
  */
@@ -277,6 +284,10 @@ export function buildBlock(ctx, spec) {
   const litMat = litWindowMaterial();
   /** A flat window, now and then with the light on, and its steel sill. */
   const flatWindow = (lx, cy, zf, face, side, w, k) => {
+    if (k === 0) {
+      const [px, pz] = toW(lx, side * (D / 2 + 0.09));
+      PERCHES.sills.push({ x: px, y: cy - WIN_H / 2, z: pz, yaw: side < 0 ? facing : facing + Math.PI });
+    }
     if (k > 0 && rng.chance(0.035)) quads.quad(litMat, [lx, cy, zf], face, w, WIN_H, cellUV(pickCell(rng, WIN.lit)));
     else quads.quad(atlas, [lx, cy, zf], face, w, WIN_H, cellUV(winCell(k)));
     _sm.compose(
@@ -561,6 +572,10 @@ export function buildBlock(ctx, spec) {
     // canopy on two thin posts, steps up to the door
     box(2.4, 0.14, 1.6, PAL.concrete, lx, floor0 + 2.35, zf - 0.8);
     box(2.46, 0.05, 1.66, PAL.roofTar, lx, floor0 + 2.49, zf - 0.8);
+    {
+      const [cx, cz] = toW(lx + 0.6, zf - 0.9);
+      PERCHES.canopies.push({ x: cx, y: floor0 + 2.54, z: cz, yaw: facing });
+    }
     for (const sx of [-1, 1]) box(0.08, floor0 + 2.35, 0.08, PAL.metalDark, lx + sx * 1.1, 0, zf - 1.5);
     // a bare bulb in a wire cage over the door, and the notice board beside
     // it with its layers of paper: water off, a lost cat, plastic windows
