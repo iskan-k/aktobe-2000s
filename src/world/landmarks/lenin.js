@@ -1,8 +1,10 @@
+import * as THREE from 'three';
 import { SURF, TILE, hQuad, splitRect } from '../../core/surfaces.js';
 import { rngKit } from '../../core/util.js';
 import { addTree } from '../props/trees.js';
 import { addBench, addLamp } from '../props/street.js';
-import { Sculpt, STONE, coatedFigure, plaqueTex, panel, plaque } from './kit.js';
+import { Sculpt, STONE, panel, plaque, graniteBlock, castLettersTex } from './kit.js';
+import { HAIRLINE } from './figure.js';
 import { MAIN } from './heating.js';
 
 /* ------------------------------------------------------------------ *
@@ -37,29 +39,15 @@ export function buildLenin(ctx, z0) {
   colliders.circle(x, z, 5.2, { top: 0.3, tag: 'bed' });
 
   // the pedestal: a stepped grey granite block with the name
-  b.box(3.6, 0.5, 3.6, STONE.greyDark, x, 0.3, z);
-  b.box(2.4, 3.6, 2.4, STONE.greyGranite, x, 0.8, z);
-  b.box(2.8, 0.3, 2.8, STONE.greyDark, x, 4.4, z);
+  graniteBlock(b, 3.6, 0.5, 3.6, STONE.greyDark, x, 0.3, z, { c: 0.05 });
+  graniteBlock(b, 2.4, 3.6, 2.4, STONE.greyGranite, x, 0.8, z, { c: 0.03, top: [2.3, 2.3] });
+  graniteBlock(b, 2.56, 0.12, 2.56, STONE.greyDark, x, 4.4, z, { c: 0.03 });
+  graniteBlock(b, 2.8, 0.2, 2.8, STONE.greyDark, x, 4.52, z, { c: 0.06 });
   colliders.box(x - 1.8, z - 1.8, x + 1.8, z + 1.8, { tag: 'statue' });
-  panel(root, plaqueTex('lenin', ['ЛЕНИН'], { bg: '#8e8c88', fg: '#c9a44a', h: 128, w: 512 }), 1.8, 0.45, x, 3.4, z - 1.215, 0);
+  panel(root, castLettersTex('lenin', [['ЛЕНИН', 1]], { w: 512, h: 128 }), 1.8, 0.45, x, 3.4, z - 1.19, 0, { alphaTest: 0.5, grime: 0 });
 
   // the figure, about 2.3 times life size
-  const s = new Sculpt(b, x, 4.7, z, 0, 2.3);
-  coatedFigure(s, GREY, GREY_DARK, { coat: 1.3, stride: 0.2, girth: 1.02 });
-  // the open coat's collar turned back over the shoulders
-  s.box(0.42, 0.08, 0.2, [0, 1.49, 0.02], GREY_DARK, [-0.3, 0, 0]);
-  // bald crown, beard and moustache
-  s.ball([0, 1.74, -0.01], [0.1, 0.1, 0.11], GREY_DARK, 10);
-  s.cone(0.07, 0.12, [0, 1.6, -0.1], GREY_DARK, 7, [-2.7, 0, 0]);
-  // right arm out and up toward the street, open hand
-  s.limb([0.24, 1.42, 0], [0.42, 1.52, -0.26], 0.06, 0.052, GREY);
-  s.ball([0.42, 1.52, -0.26], 0.052, GREY);
-  s.limb([0.42, 1.52, -0.26], [0.56, 1.66, -0.55], 0.05, 0.043, GREY);
-  s.ball([0.58, 1.68, -0.6], [0.045, 0.02, 0.07], GREY, 8, [0.3, 0, 0]);
-  // left hand gripping the lapel
-  s.limb([-0.24, 1.42, 0], [-0.3, 1.14, -0.08], 0.06, 0.052, GREY);
-  s.limb([-0.3, 1.14, -0.08], [-0.1, 1.3, -0.17], 0.05, 0.045, GREY);
-  s.ball([-0.08, 1.31, -0.18], 0.045, GREY);
+  leninFigure(new Sculpt(b, x, 4.72, z, 0, 2.3, { statue: true }));
 
   plaque(ctx, {
     x, z: z - 5.8, y: 1.2, w: 2.4, label: 'Read the pedestal',
@@ -81,4 +69,75 @@ export function buildLenin(ctx, z0) {
   }
   addLamp(b, -198, z0 + 2, 0, { height: 6 });
   colliders.circle(-198, z0 + 2, 0.2, { top: 6 });
+}
+
+/**
+ * Lenin in the pose of the 1983 statue, life size in the Sculpt's local
+ * space: an open overcoat blown back, jacket, waistcoat and tie, the
+ * left foot forward, the right arm out and up toward the street with the
+ * hand open, the left hand gripping the lapel. The high bald crown, the
+ * fringe of hair, the moustache and the pointed beard.
+ */
+function leninFigure(s) {
+  const C = GREY, D = GREY_DARK, J = 0x817b72;
+  s.geo(slab(), D);
+  const legs = [
+    { hip: [0.09, 0.88, 0.02], knee: [0.1, 0.48, 0.03], ankle: [0.11, 0.085, 0.06], yaw: -0.25 },
+    { hip: [-0.09, 0.88, -0.02], knee: [-0.11, 0.49, -0.12], ankle: [-0.12, 0.085, -0.16], yaw: 0.15 },
+  ];
+  for (const l of legs) {
+    s.sweep([l.hip, l.knee, l.ankle], [0.085, 0.064, 0.056], J, { seg: 12 });
+    const fx = -Math.sin(l.yaw), fz = -Math.cos(l.yaw);
+    s.ball([l.ankle[0] + fx * 0.06, 0.045, l.ankle[2] + fz * 0.06], [0.048, 0.045, 0.13], D, 12, [0, l.yaw, 0]);
+    s.box(0.09, 0.022, 0.27, [l.ankle[0] + fx * 0.055, 0.011, l.ankle[2] + fz * 0.055], D, [0, l.yaw, 0]);
+  }
+  // jacket and waistcoat under the coat, the tie
+  s.loft([
+    { y: 0.8, rx: 0.17, rf: 0.115, rb: 0.12 },
+    { y: 1.0, rx: 0.165, rf: 0.125, rb: 0.115 },
+    { y: 1.2, rx: 0.175, rf: 0.13, rb: 0.115 },
+    { y: 1.38, rx: 0.19, rf: 0.115, rb: 0.105 },
+    { y: 1.46, rx: 0.1, rf: 0.07, rb: 0.075 },
+  ], J, { seg: 32, capBottom: true });
+  s.box(0.035, 0.2, 0.012, [0, 1.3, -0.127], D, [-0.1, 0, 0]);
+  s.ball([0, 1.415, -0.108], [0.022, 0.02, 0.014], D, 8);   // the knot of the tie
+  for (const sd of [-1, 1]) {
+    s.box(0.05, 0.26, 0.012, [sd * 0.06, 1.27, -0.128], D, [-0.12, 0, sd * 0.28]);   // jacket lapels
+    s.ball([sd * 0.2, 1.405, 0], 0.066, C);
+  }
+  // the overcoat, open, the skirts swinging back from the stride
+  s.loft([
+    { y: 0.4, x: 0.0, z: 0.1, rx: 0.3, rf: 0.2, rb: 0.3, fold: 0.06, folds: 8, phase: 0.2, openR: 0.95, openL: 0.8 },
+    { y: 0.64, z: 0.06, rx: 0.27, rf: 0.17, rb: 0.24, fold: 0.045, folds: 8, phase: 0.2, openR: 0.82, openL: 0.7 },
+    { y: 0.9, z: 0.02, rx: 0.222, rf: 0.145, rb: 0.175, fold: 0.02, folds: 6, phase: 0.2, openR: 0.68, openL: 0.55 },
+    { y: 1.1, rx: 0.2, rf: 0.14, rb: 0.14, openR: 0.6, openL: 0.5 },
+    { y: 1.3, rx: 0.205, rf: 0.145, rb: 0.13, openR: 0.55, openL: 0.45 },
+    { y: 1.42, rx: 0.215, rf: 0.125, rb: 0.12, openR: 0.6, openL: 0.5 },
+    { y: 1.48, rx: 0.125, rf: 0.095, rb: 0.105, openR: 0.62, openL: 0.6 },
+    { y: 1.535, rx: 0.085, rf: 0.08, rb: 0.09, openR: 0.5, openL: 0.5 },
+  ], C, { seg: 40 });
+  for (const sd of [-1, 1]) s.box(0.07, 0.3, 0.014, [sd * 0.13, 1.3, -0.145], C, [-0.1, sd * 0.3, sd * 0.25]);   // coat lapels
+
+  // head: looking up and out over the street
+  s.sweep([[0, 1.45, 0.005], [0, 1.5, -0.004], [0, 1.545, -0.012]], [0.052, 0.05, 0.048], C, { seg: 12 });
+  s.head([0, 1.645, -0.02], [0.14, -0.04, 0], C, {
+    beard: 'goatee', moustache: true, brow: 0.085, hair: HAIRLINE.fringe, hairOpts: { thick: 0.035, comb: 'down', groove: 0.015 },
+  });
+
+  // right arm out and up, open hand; left hand at the lapel
+  const rWrist = [0.5, 1.62, -0.47];
+  s.sweep([[0.2, 1.42, 0], [0.29, 1.44, -0.1], [0.37, 1.48, -0.23], [0.44, 1.55, -0.36], rWrist],
+    [0.062, 0.058, 0.052, 0.048, 0.04], C, { seg: 12 });
+  s.hand(rWrist, [0.4, 0.28, -0.87], [0.1, -1, -0.2], C, { kind: 'open', side: 1 });
+  const lWrist = [-0.1, 1.28, -0.155];
+  s.sweep([[-0.2, 1.42, 0], [-0.25, 1.28, 0.0], [-0.27, 1.14, -0.05], [-0.2, 1.2, -0.13], lWrist],
+    [0.062, 0.058, 0.05, 0.046, 0.038], C, { seg: 12 });
+  s.hand(lWrist, [0.3, 0.9, -0.2], [0, 0, 1], C, { kind: 'fist', side: -1 });
+}
+
+function slab() {
+  const g = new THREE.CylinderGeometry(0.5, 0.52, 0.05, 18);
+  g.scale(1, 1, 0.8);
+  g.translate(0, 0.015, 0);
+  return g;
 }

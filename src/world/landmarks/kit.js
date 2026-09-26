@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import { cel } from '../../core/toon.js';
 import { canvasTex, cached, centerText, FONT, weather } from '../../core/textures.js';
+import { rngKit } from '../../core/util.js';
+import { loft, sweep, headGeo, hairGeo, handGeo, frame, chamferFrustum, boxUV, HEAD } from './figure.js';
 
 /* ------------------------------------------------------------------ *
  * Kit shared by the sights: a local-space sculpture builder, the stone
@@ -9,8 +11,11 @@ import { canvasTex, cached, centerText, FONT, weather } from '../../core/texture
  *
  * A Sculpt collects primitives authored at the origin facing -z (the
  * same convention as the rest of the project) and bakes them into the
- * static batch placed at (x, y, z) turned to `facing`. Statues are built
- * from tapered limbs and ellipsoids, like the Abulkhair Khan monument.
+ * static batch placed at (x, y, z) turned to `facing`. Statues use the
+ * forms in figure.js (lofted bodies, swept limbs, heads with faces,
+ * hands) and bake into the statue material, with the cavity shade of a
+ * face or a fold carried in the vertex colour. Pedestals are chamfered
+ * granite blocks in a speckled stone material.
  * ------------------------------------------------------------------ */
 
 export const STONE = {
@@ -28,6 +33,8 @@ export const METAL = {
   bronzeDark: 0x3e3325,
   bronzeLight: 0x9a7a44,
   gilt: 0xc9a44a,
+  statue: 0x7e6a4a,         // cast figures: a warm, lightly worn bronze
+  statueDark: 0x5c4b33,
   khaki: 0x4f5a3a,          // the green of a museum T-34
   khakiDark: 0x3a4229,
 };
@@ -35,16 +42,117 @@ export const METAL = {
 const _up = new THREE.Vector3(0, 1, 0);
 const _v = new THREE.Vector3();
 
+/**
+ * Cast bronze and painted statues: five light bands so a face and the
+ * folds of a coat model softly, no dusty skirt (they stand on plinths).
+ */
+export function statueMat() {
+  return cel({ vertexColors: true, bands: 'statue', grime: 0.035, dirt: 0 });
+}
+
+/** Polished granite: a fine speckle, tinted by the vertex colour. */
+function graniteTex() {
+  return cached('granite-speckle', () => canvasTex(256, 256, (c, W, H) => {
+    const r = rngKit(4411);
+    c.fillStyle = '#e6e6e6';
+    c.fillRect(0, 0, W, H);
+    // feldspar and quartz grains, then black mica flecks; drawn wrapped so the tile repeats
+    const dot = (x, y, s, col, a) => {
+      c.globalAlpha = a;
+      c.fillStyle = col;
+      for (const dx of [-W, 0, W]) for (const dy of [-H, 0, H]) c.fillRect(x + dx, y + dy, s, s * r.range(0.6, 1.4));
+    };
+    for (let i = 0; i < 2600; i++) dot(r.range(0, W), r.range(0, H), r.range(1, 4), r.pick(['#ffffff', '#f4f0ea', '#c8c4c0']), r.range(0.3, 0.8));
+    for (let i = 0; i < 1400; i++) dot(r.range(0, W), r.range(0, H), r.range(1, 2.5), r.pick(['#3a3634', '#58524e', '#8a8480']), r.range(0.3, 0.9));
+    c.globalAlpha = 1;
+  }, { repeat: [1, 1] }));
+}
+
+let _granite = null;
+export function graniteMat() {
+  if (!_granite) _granite = cel({ map: graniteTex(), vertexColors: true, grime: 0.03, dirt: 0.2, cache: false });
+  return _granite;
+}
+
+const _gm = new THREE.Matrix4();
+const _gq = new THREE.Quaternion();
+const _ge = new THREE.Euler();
+const _gp = new THREE.Vector3();
+const _gs = new THREE.Vector3(1, 1, 1);
+
+/**
+ * A chamfered granite block, base-anchored at (x, y, z), turned `ry`.
+ * `top` gives a tapered block its top size [w1, d1].
+ */
+export function graniteBlock(batch, w, h, d, color, x, y, z, { ry = 0, c = 0.04, top = null, tile = 0.9, cast = true } = {}) {
+  const [w1, d1] = top || [w, d];
+  const g = boxUV(chamferFrustum(w, d, w1, d1, h, c), tile);
+  _gm.compose(_gp.set(x, y, z), _gq.setFromEuler(_ge.set(0, ry, 0)), _gs);
+  batch.add(g, { color, matrix: _gm, mat: graniteMat(), cast });
+}
+
 export class Sculpt {
-  constructor(batch, x, y, z, facing = 0, scale = 1) {
+  /** `statue` bakes into the statue material; otherwise the plain solid one. */
+  constructor(batch, x, y, z, facing = 0, scale = 1, { statue = false } = {}) {
     this.batch = batch;
+    this.mat = statue ? statueMat() : 'solid';
     this.m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
       new THREE.Quaternion().setFromEuler(new THREE.Euler(0, facing, 0)), new THREE.Vector3(scale, scale, scale));
   }
 
   place(g, color) {
     g.applyMatrix4(this.m);
-    this.batch.add(g, { color });
+    const shade = g.attributes.shade;
+    if (!shade) {
+      this.batch.add(g, { color, mat: this.mat });
+      return;
+    }
+    // bake the geometry's cavity shade into its vertex colour
+    const base = new THREE.Color(color);
+    const arr = new Float32Array(shade.count * 3);
+    for (let i = 0; i < shade.count; i++) {
+      const k = shade.getX(i);
+      arr[i * 3] = base.r * k;
+      arr[i * 3 + 1] = base.g * k;
+      arr[i * 3 + 2] = base.b * k;
+    }
+    g.setAttribute('color', new THREE.BufferAttribute(arr, 3));
+    g.deleteAttribute('shade');
+    this.batch.add(g, { color: null, mat: this.mat });
+  }
+
+  /** Tube along a smooth curve; see figure.js sweep. */
+  sweep(pts, radii, color, o) { this.place(sweep(pts, radii, o), color); }
+
+  /** Stacked rings; see figure.js loft. */
+  loft(rings, color, o) { this.place(loft(rings, o), color); }
+
+  /** A hand at the wrist, fingers along `along`, palm toward `toward`. */
+  hand(wrist, along, toward, color, { kind = 'open', side = 1, size = 1 } = {}) {
+    const f = frame(wrist, along, toward).scale(new THREE.Vector3(size, size, size));
+    for (const g of handGeo(kind, side)) { g.applyMatrix4(f); this.place(g, color); }
+  }
+
+  /**
+   * A head centred at `at`, turned by rot [pitch (+ lifts the chin), yaw
+   * (+ turns to the figure's left), roll]. `hair` is a hairline function
+   * or null; `ears` false under a hat.
+   */
+  head(at, rot, color, { hair = null, hairColor = color, hairOpts = {}, ears = true, size = 1, ...face } = {}) {
+    const m = new THREE.Matrix4().compose(new THREE.Vector3(...at),
+      new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2] || 0, 'YXZ')), new THREE.Vector3(size, size, size));
+    const add = (g, col) => { g.applyMatrix4(m); this.place(g, col); };
+    add(headGeo(face), color);
+    if (hair) add(hairGeo(hair, hairOpts), hairColor);
+    if (ears) {
+      for (const s of [-1, 1]) {
+        const e = new THREE.SphereGeometry(1, 8, 6);
+        e.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(s * HEAD.rx * 0.9, -0.01, HEAD.rz * 0.14),
+          new THREE.Quaternion().setFromEuler(new THREE.Euler(0, s * 0.5, 0)), new THREE.Vector3(0.009, 0.026, 0.016)));
+        add(e, color);
+      }
+    }
+    return m;
   }
 
   /** Tapered cylinder from a to b, radius r0 at a and r1 at b. */
@@ -88,32 +196,6 @@ export class Sculpt {
   geo(g, color) { this.place(g, color); }
 }
 
-/**
- * A standing figure's legs, trunk and head in a long coat, which is what
- * both the Lenin and the Moldagulova statues are: heroic scale is set by
- * the Sculpt's scale. y = 0 is the top of the pedestal. Returns the
- * shoulder points so each statue adds its own arms.
- */
-export function coatedFigure(s, color, dark, { coat = 1.28, stride = 0.16, girth = 1 } = {}) {
-  const g = girth;
-  // legs, one a little forward
-  for (const side of [-1, 1]) {
-    const fz = side < 0 ? -stride : stride * 0.4;
-    s.limb([side * 0.11, 0.06, fz], [side * 0.12, 0.62, fz * 0.5], 0.065 * g, 0.08 * g, color);
-    s.box(0.13 * g, 0.1, 0.28, [side * 0.11, 0.05, fz - 0.06], dark);
-  }
-  // the coat skirt: a flared frustum, split at the front
-  s.cone(0.34 * g, coat - 0.5, [0, 0.5 + (coat - 0.5) / 2, 0], color, 14, [0, 0, 0], 0.2 * g);
-  s.box(0.02, coat - 0.55, 0.05, [0, 0.52 + (coat - 0.55) / 2, -0.3 * g], dark, [0.12, 0, 0]);
-  // trunk and chest
-  s.limb([0, coat - 0.05, 0], [0, 1.45, 0], 0.2 * g, 0.2 * g, color, 12);
-  s.ball([0, 1.42, 0], [0.26 * g, 0.13, 0.16 * g], color);          // shoulders
-  s.box(0.2, 0.2, 0.06, [0, 1.35, -0.14 * g], dark, [0.2, 0, 0]);     // lapels
-  s.limb([0, 1.5, 0], [0, 1.58, -0.01], 0.06, 0.055, color, 8);      // neck
-  s.ball([0, 1.7, -0.02], [0.105, 0.125, 0.115], color);             // head
-  return { left: [-0.23 * g, 1.42, 0], right: [0.23 * g, 1.42, 0] };
-}
-
 /** Engraved plaque: pale letters cut into a dark stone or bronze panel. */
 export function plaqueTex(key, lines, { bg = '#2c2e31', fg = '#d9c38a', w = 512, h = 320, family = FONT.serif } = {}) {
   return cached(`plaque|${key}`, () => canvasTex(w, h, (c) => {
@@ -137,6 +219,26 @@ function hashLine(s) {
   let h = 7;
   for (let i = 0; i < s.length; i++) h = (h * 31 + s.charCodeAt(i)) >>> 0;
   return h % 997;
+}
+
+/**
+ * Letters cast in bronze and fixed to stone: an alpha-cut texture whose
+ * letters carry a dark offset edge, so they read as standing proud of
+ * the face. `lines` are [text, relative size] pairs top to bottom.
+ */
+export function castLettersTex(key, lines, { fg = '#c9a24e', edge = '#2a1e12', w = 1024, h = 512, family = FONT.serif } = {}) {
+  return cached(`cast|${key}`, () => canvasTex(w, h, (c) => {
+    c.clearRect(0, 0, w, h);
+    const total = lines.reduce((a, [, k]) => a + k, 0);
+    let y = 0;
+    for (const [t, k] of lines) {
+      const lh = (h * k) / total;
+      const cy = y + lh / 2;
+      centerText(c, t, w / 2 + 3, cy + 4, w * 0.94, lh * 0.8, edge, { family, weight: '700' });
+      centerText(c, t, w / 2, cy, w * 0.94, lh * 0.8, fg, { family, weight: '700' });
+      y += lh;
+    }
+  }));
 }
 
 /** A textured vertical quad (bottom centre at x, y, z) added to root, facing yaw. */

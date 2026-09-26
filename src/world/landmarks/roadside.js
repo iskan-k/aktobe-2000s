@@ -5,7 +5,7 @@ import { canvasTex, cached, centerText, FONT, weather } from '../../core/texture
 import { rngKit } from '../../core/util.js';
 import { defineLoop } from '../../core/audio.js';
 import { letters } from '../buildings/landmarks.js';
-import { Sculpt, STONE, plaqueTex, panel, plaque } from './kit.js';
+import { Sculpt, STONE, plaqueTex, panel, plaque, graniteBlock } from './kit.js';
 
 /* ------------------------------------------------------------------ *
  * Summer at the edge of town, on ул. Маресьева, east of the garages.
@@ -304,10 +304,21 @@ defineLoop('mangal', (ac, out) => {
 function stele(ctx) {
   const { batch: b, colliders, root } = ctx;
   const { x, z } = STELE;
-  b.box(7.4, 0.25, 3.6, STONE.concrete, x, Y, z);
-  b.box(6.6, 0.25, 2.8, STONE.slab, x, 0.23, z);
-  b.box(5.6, 8.2, 0.9, 0xe8e4da, x, 0.48, z);
-  b.box(5.9, 0.3, 1.1, 0xd4d0c6, x, 8.68, z);
+  // two granite steps, the slab of white terrazzo, a moulded cap
+  graniteBlock(b, 7.4, 0.25, 3.6, STONE.greyGranite, x, Y, z, { c: 0.035 });
+  graniteBlock(b, 6.6, 0.25, 2.8, STONE.slab, x, 0.23, z, { c: 0.035 });
+  graniteBlock(b, 5.9, 0.16, 1.2, 0xd4d0c6, x, 0.48, z, { c: 0.04 });
+  graniteBlock(b, 5.6, 8.04, 0.9, 0xeeebe2, x, 0.64, z, { c: 0.05 });
+  graniteBlock(b, 5.76, 0.12, 1.02, 0xd4d0c6, x, 8.62, z, { c: 0.03 });
+  graniteBlock(b, 5.95, 0.26, 1.14, 0xd4d0c6, x, 8.72, z, { c: 0.06 });
+  // a raised frame round the mosaic and two flutes down each edge
+  const FR = 0xdcd8ce, fz = z - 0.5;
+  graniteBlock(b, 5.2, 0.22, 0.12, FR, x, 7.6, fz, { c: 0.03 });
+  graniteBlock(b, 5.2, 0.22, 0.12, FR, x, 1.38, fz, { c: 0.03 });
+  for (const s of [-1, 1]) {
+    graniteBlock(b, 0.22, 6.0, 0.12, FR, x + s * 2.49, 1.6, fz, { c: 0.03 });
+    for (const dz of [-0.2, 0.2]) graniteBlock(b, 0.08, 7.6, 0.12, FR, x + s * 2.82, 0.84, z + dz, { c: 0.02 });
+  }
   colliders.box(x - 3.7, z - 1.8, x + 3.7, z + 1.8, { top: 0.48, tag: 'stele' });
   colliders.box(x - 2.8, z - 0.45, x + 2.8, z + 0.45, { tag: 'stele' });
   ctx.ground.flat(x - 3.7, z - 1.8, x + 3.7, z + 1.8, 0.23, 'stele');

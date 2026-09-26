@@ -6,7 +6,9 @@ import { rngKit } from '../../core/util.js';
 import { defineLoop } from '../../core/audio.js';
 import { addTree } from '../props/trees.js';
 import { addBench, addLamp } from '../props/street.js';
-import { Sculpt, STONE, METAL, coatedFigure, plaqueTex, panel, plaque } from './kit.js';
+import { Sculpt, STONE, METAL, plaqueTex, panel, plaque, axes, graniteBlock, statueMat, castLettersTex } from './kit.js';
+import { starGeo } from './figure.js';
+import { aliyaFigure, redArmyman } from './statues.js';
 import { MAIN } from './heating.js';
 
 /* ------------------------------------------------------------------ *
@@ -37,7 +39,7 @@ const Y = -0.015;              // paving, a hair above the grass strip
 const FLAME = { x: X, z: 134.2 };
 const OBELISK = { x: X, z: 141.6, h: 19 };
 const TANK = { x: -178.5, z: 133, facing: -0.35 };
-const ALIYA = { x: -121.5, z: 133, facing: 0.35 };
+const ALIYA = { x: -121.5, z: 133, facing: 1.1 };   // turned toward the flame
 const BACK = MAIN.z[0] - 1.1;   // the back edge, clear of the heating main
 
 /* ---------------- textures ---------------- */
@@ -194,66 +196,107 @@ function grounds(ctx, z0) {
 /* ---------------- obelisk ---------------- */
 
 function obelisk(ctx) {
-  const { batch: b, colliders, ground } = ctx;
+  const { batch: b, colliders, ground, root } = ctx;
   const { x, z, h } = OBELISK;
-  // three walkable steps
+  // three walkable steps of red granite
   const steps = [[9, 0.3], [7.6, 0.3], [6.2, 0.3]];
   steps.forEach(([s, t], i) => {
-    b.box(s, t, s, i % 2 ? STONE.graniteDark : STONE.granite, x, i * t, z);
+    graniteBlock(b, s, t, s, i % 2 ? STONE.graniteDark : STONE.granite, x, i * t, z, { c: 0.035 });
     ground.flat(x - s / 2, z - s / 2, x + s / 2, z + s / 2, (i + 1) * t, 'monument');
   });
-  // the plinth with its bronze inscription, then the shaft
+  // the plinth: base course, a die of two courses, a moulded cornice
   const py = 0.9;
-  b.box(3.6, 0.35, 3.6, STONE.graniteDark, x, py, z);
-  b.box(3.2, 2.2, 3.2, STONE.granite, x, py + 0.35, z);
-  b.box(3.5, 0.3, 3.5, STONE.graniteDark, x, py + 2.55, z);
+  graniteBlock(b, 3.6, 0.35, 3.6, STONE.graniteDark, x, py, z, { c: 0.05 });
+  graniteBlock(b, 3.2, 1.1, 3.2, STONE.granite, x, py + 0.35, z, { c: 0.03 });
+  graniteBlock(b, 3.2, 1.1, 3.2, STONE.granite, x, py + 1.45, z, { c: 0.03 });
+  graniteBlock(b, 3.34, 0.12, 3.34, STONE.graniteDark, x, py + 2.55, z, { c: 0.03 });
+  graniteBlock(b, 3.52, 0.18, 3.52, STONE.graniteDark, x, py + 2.67, z, { c: 0.06, top: [3.4, 3.4] });
   colliders.box(x - 1.8, z - 1.8, x + 1.8, z + 1.8, { tag: 'obelisk' });
+
+  // the shaft: courses of granite tapering from 2.2 m to 1.3 m, each block
+  // chamfered so the joints show, a slight change of tone course to course
   const y0 = py + 2.85, y1 = h - 1.6;
-  // a four-sided shaft tapering from 2.2 m to 1.3 m: a 4-segment frustum
-  // turned 45 degrees so its faces square with the plinth
-  const shaft = new THREE.CylinderGeometry(1.3 * Math.SQRT1_2, 2.2 * Math.SQRT1_2, y1 - y0, 4, 1, true);
-  shaft.rotateY(Math.PI / 4);
-  shaft.translate(x, (y0 + y1) / 2, z);
-  b.add(faceted(shaft), { color: STONE.granite });
-  const tip = new THREE.ConeGeometry(1.3 * Math.SQRT1_2, h - y1, 4, 1);
-  tip.rotateY(Math.PI / 4);
-  tip.translate(x, y1 + (h - y1) / 2, z);
-  b.add(faceted(tip), { color: STONE.graniteDark });
-  // the gilt star in relief near the top, on the face toward the street
-  const zFace = z - 1.3 / 2 - ((2.2 - 1.3) / 2) * (2.6 / (y1 - y0)) - 0.03;
-  star(b, x, y1 - 2.6, zFace, 0.62, METAL.gilt, 0.08);
-  // gilt years down the face
-  const years = new THREE.Mesh(new THREE.PlaneGeometry(1.1, 5.2),
-    cel({ map: yearsTex(), alphaTest: 0.5, grime: 0, dirt: 0, cache: false }));
-  const yy = y0 + 4.2;
-  const inset = (2.2 - (2.2 - 1.3) * ((yy - y0) / (y1 - y0))) / 2;
-  years.position.set(x, yy, z - inset - 0.02);
-  years.rotation.x = Math.atan2(0.45, y1 - y0);
-  years.rotation.y = Math.PI;
-  ctx.root.add(years);
-  // bronze plaque on the plinth
-  panel(ctx.root, plaqueTex('obelisk', ['1941 – 1945', 'ОТАН ҮШІН ҚАЗА ТАПҚАНДАРҒА', 'МӘҢГІ ДАҢҚ', 'ВЕЧНАЯ СЛАВА ГЕРОЯМ'], { bg: '#4a3b27', fg: '#e3cc8e' }),
-    2.2, 1.35, x, py + 0.75, z - 1.62, 0);
+  const width = (y) => 2.2 - 0.9 * ((y - y0) / (y1 - y0));
+  const rng = rngKit(1970);
+  const courses = 11;
+  for (let i = 0; i < courses; i++) {
+    const a = y0 + ((y1 - y0) * i) / courses, c = y0 + ((y1 - y0) * (i + 1)) / courses;
+    const tone = new THREE.Color(STONE.granite).multiplyScalar(rng.range(0.94, 1.05)).getHex();
+    graniteBlock(b, width(a), c - a, width(a), tone, x, a, z, { c: 0.025, top: [width(c), width(c)] });
+  }
+  // the pyramidion
+  graniteBlock(b, 1.3, h - y1, 1.3, STONE.graniteDark, x, y1, z, { c: 0.02, top: [0.05, 0.05] });
+
+  // on the face toward the street: the gilt star in a laurel wreath near
+  // the top, and the years in bronze figures down the shaft
+  const lean = Math.atan2(0.45, y1 - y0);
+  const faceZ = (y) => z - width(y) / 2 - 0.005;
+  const sy = y1 - 2.4;
+  const st = starGeo(0.6, 0.1);
+  st.rotateX(lean);
+  st.translate(x, sy, faceZ(sy));
+  b.add(st, { color: METAL.gilt, mat: statueMat() });
+  const w = new Sculpt(b, x, sy, faceZ(sy), 0, 1, { statue: true });
+  laurel(w, 0.95, lean);
+  const years = panel(root, castLettersTex('obelisk-years', [['1941', 1], ['', 0.4], ['1945', 1]], { w: 256, h: 512 }),
+    1.0, 2.0, x, y0 + 3.1, faceZ(y0 + 4.1) - 0.01, 0, { alphaTest: 0.5, grime: 0 });
+  years.rotation.x = lean;
+
+  // the Red Army man on his block in front of the plinth, looking down
+  // at the flame, the dedication cut into the block
+  const bz = z - 2.45;
+  graniteBlock(b, 2.2, 0.62, 1.4, STONE.graniteDark, x, py, bz, { c: 0.04 });
+  colliders.box(x - 1.1, bz - 0.7, x + 1.1, bz + 0.7, { tag: 'obelisk' });
+  redArmyman(new Sculpt(b, x, py + 0.62, bz + 0.05, 0, 2.4, { statue: true }));
+  panel(root, castLettersTex('obelisk-block', [['МӘҢГІ ДАҢҚ', 1], ['ВЕЧНАЯ СЛАВА', 1]], { w: 1024, h: 256 }),
+    1.9, 0.48, x, py + 0.07, bz - 0.712, 0, { alphaTest: 0.5, grime: 0 });
+  // the dedication on the sides of the plinth
+  for (const s of [-1, 1]) {
+    panel(root, plaqueTex('obelisk', ['1918 – 1920 · 1941 – 1945', 'ОТАН ҮШІН ҚАЗА ТАПҚАН', 'АҚТӨБЕЛІКТЕРГЕ', 'АКТЮБИНЦАМ, ПАВШИМ ЗА РОДИНУ'], { bg: '#4a3b27', fg: '#e3cc8e' }),
+      2.1, 1.3, x + s * 1.612, py + 0.85, z, s > 0 ? -Math.PI / 2 : Math.PI / 2);
+  }
   plaque(ctx, {
-    x, z: z - 2.3, y: 1.5, label: 'Read the obelisk',
+    x, z: z - 3.6, y: 1.5, label: 'Read the obelisk',
     title: 'Даңқ обелискі · Обелиск Славы',
-    body: 'Воздвигнут в 1970 году в честь актюбинцев, павших в Великой Отечественной войне 1941–1945 годов. Красный гранит, 19 метров.',
+    body: 'Воздвигнут в 1970 году (архитектор Т. Джанысбеков, скульптор Н. Соболев) в честь актюбинцев, павших за Родину в годы Гражданской и Великой Отечественной войн. Гранит, 19 метров. Красноармеец в будёновке поднял шашку и смотрит на Вечный огонь.',
   });
 }
 
-/** Split shared vertices so a low-segment cylinder shades as flat faces. */
-function faceted(g) {
-  const f = g.toNonIndexed();
-  f.computeVertexNormals();
-  return f;
-}
-
-function yearsTex() {
-  return cached('obelisk-years', () => canvasTex(128, 640, (c, W, H) => {
-    c.clearRect(0, 0, W, H);
-    const lines = ['1', '9', '4', '1', '', '1', '9', '4', '5'];
-    lines.forEach((t, i) => centerText(c, t, W / 2, 40 + i * 70, W * 0.9, 66, '#d8b35a', { family: FONT.serif, weight: '700' }));
-  }));
+/**
+ * A laurel wreath in relief round the origin: two branches of paired
+ * leaves meeting at the top, tied with a ribbon at the bottom. Laid on a
+ * face leaning back by `lean`.
+ */
+function laurel(s, r, lean) {
+  const G = METAL.gilt;
+  const n = 16;
+  for (const side of [-1, 1]) {
+    for (let i = 0; i < n; i++) {
+      const t = i / (n - 1);
+      const a = -Math.PI / 2 + side * (0.25 + t * 2.45);
+      const px = Math.cos(a) * r, py = Math.sin(a) * r;
+      const out = 0.06 * (1 - t * 0.5);
+      const size = 0.13 * (1 - t * 0.45);
+      for (const k of [-1, 1]) {
+        const ox = Math.cos(a) * out * k, oy = Math.sin(a) * out * k;
+        const lx = px + ox, ly = py + oy;
+        const zr = ly * Math.tan(lean);
+        s.ball([lx, ly, zr - 0.02], [size * 0.38, size, 0.03], G, 7, [0, 0, a + k * 0.55]);
+      }
+    }
+    // the stem
+    const pts = [];
+    for (let i = 0; i <= 6; i++) {
+      const a = -Math.PI / 2 + side * (0.25 + (i / 6) * 2.45);
+      pts.push([Math.cos(a) * r, Math.sin(a) * r, Math.sin(a) * r * Math.tan(lean) - 0.015]);
+    }
+    s.sweep(pts, 0.018, G, { seg: 5 });
+  }
+  // the ribbon knot and its tails
+  s.ball([0, -r, -r * Math.tan(lean) - 0.03], [0.09, 0.07, 0.04], G, 8);
+  for (const side of [-1, 1]) {
+    s.box(0.07, 0.34, 0.02, [side * 0.12, -r - 0.2, -(r + 0.2) * Math.tan(lean) - 0.02], G, [lean, 0, side * 0.35]);
+  }
 }
 
 /** Five-pointed star, flat, facing -z (toward the street), centred at (x, y, z). */
@@ -423,9 +466,9 @@ function nameWalls(ctx) {
   ];
   const L = 17, H = 3.3, T = 0.7;
   for (const w of walls) {
-    b.box(L + 0.6, 0.4, T + 0.5, STONE.graniteDark, w.x, Y, w.z, { ry: w.ry });
-    b.box(L, H, T, STONE.granite, w.x, 0.4, w.z, { ry: w.ry });
-    b.box(L + 0.4, 0.22, T + 0.2, STONE.graniteDark, w.x, 0.4 + H, w.z, { ry: w.ry });
+    graniteBlock(b, L + 0.6, 0.4, T + 0.5, STONE.graniteDark, w.x, Y, w.z, { ry: w.ry, c: 0.04 });
+    for (let k = 0; k < 4; k++) graniteBlock(b, L / 4, H, T, STONE.granite, w.x + Math.cos(w.ry) * (k - 1.5) * (L / 4), 0.4, w.z - Math.sin(w.ry) * (k - 1.5) * (L / 4), { ry: w.ry, c: 0.025 });
+    graniteBlock(b, L + 0.4, 0.22, T + 0.2, STONE.graniteDark, w.x, 0.4 + H, w.z, { ry: w.ry, c: 0.05 });
     colliders.obb(w.x, w.z, L / 2 + 0.3, T / 2 + 0.25, w.ry, { top: H + 0.6, tag: 'wall' });
     // the black name panel on the face toward the obelisk forecourt
     const fx = -Math.sin(w.ry), fz = -Math.cos(w.ry);
@@ -452,36 +495,45 @@ function nameWalls(ctx) {
 /* ---------------- Aliya Moldagulova ---------------- */
 
 function moldagulova(ctx) {
-  const { batch: b, colliders } = ctx;
+  const { batch: b, colliders, root } = ctx;
   const { x, z, facing } = ALIYA;
-  b.box(3.4, 0.3, 3.4, STONE.greyGranite, x, Y, z, { ry: facing });
-  b.box(2.0, 3.0, 2.0, STONE.granite, x, 0.3, z, { ry: facing });
-  b.box(2.3, 0.25, 2.3, STONE.graniteDark, x, 3.3, z, { ry: facing });
-  colliders.obb(x, z, 1.2, 1.2, facing, { tag: 'statue' });
-  const s = new Sculpt(b, x, 3.55, z, facing, 1.55);
-  const C = METAL.bronze, D = METAL.bronzeDark;
-  coatedFigure(s, C, D, { coat: 1.18, stride: 0.12, girth: 0.86 });
-  // the pilotka on her head, hair gathered at the nape
-  s.box(0.2, 0.07, 0.24, [0.01, 1.83, -0.01], D, [0, 0, 0.12]);
-  s.ball([0, 1.66, 0.09], [0.07, 0.06, 0.05], D);
-  // the belt over the greatcoat
-  s.limb([0, 1.02, 0], [0, 1.07, 0], 0.18, 0.18, D, 12);
-  // arms holding the sniper rifle across the body, barrel up to her left
-  const stock = [0.2, 0.98, -0.2], fore = [-0.12, 1.42, -0.2];
-  s.limb([0.2, 1.42, 0], [0.26, 1.16, -0.1], 0.055, 0.05, C);
-  s.limb([0.26, 1.16, -0.1], stock, 0.05, 0.045, C);
-  s.limb([-0.2, 1.42, 0], [-0.24, 1.3, -0.16], 0.055, 0.05, C);
-  s.limb([-0.24, 1.3, -0.16], fore, 0.05, 0.045, C);
-  s.limb([0.27, 0.84, -0.22], [-0.32, 1.95, -0.22], 0.03, 0.017, D, 6);   // rifle
-  s.limb([0.05, 1.22, -0.25], [-0.05, 1.4, -0.25], 0.022, 0.022, D, 6);   // the scope
-  s.box(0.07, 0.22, 0.05, [0.24, 0.9, -0.22], D, [0, 0, -0.5]);          // stock
-  const fx = -Math.sin(facing), fz = -Math.cos(facing);
-  panel(ctx.root, plaqueTex('aliya', ['ӘЛИЯ МОЛДАҒҰЛОВА', 'АЛИЯ МОЛДАГУЛОВА', '1925 – 1944', 'Кеңес Одағының Батыры'], { bg: '#4a3b27', fg: '#e3cc8e' }),
-    1.5, 1.0, x + fx * 1.02, 1.4, z + fz * 1.02, facing);
+  const { fx, fz, rx, rz } = axes(facing);
+  // grey granite stylobate, then the red granite pedestal of the 2005
+  // monument: 2.43 m of plinth, shaft and cornice
+  graniteBlock(b, 4.4, 0.16, 4.4, STONE.greyDark, x, Y, z, { ry: facing, c: 0.03 });
+  graniteBlock(b, 3.9, 0.14, 3.9, STONE.greyGranite, x, Y + 0.16, z, { ry: facing, c: 0.03 });
+  const y0 = Y + 0.3;
+  graniteBlock(b, 2.2, 0.36, 2.2, STONE.graniteDark, x, y0, z, { ry: facing, c: 0.05 });
+  graniteBlock(b, 1.9, 1.72, 1.9, STONE.granite, x, y0 + 0.36, z, { ry: facing, c: 0.03, top: [1.82, 1.82] });
+  graniteBlock(b, 2.06, 0.12, 2.06, STONE.graniteDark, x, y0 + 2.08, z, { ry: facing, c: 0.03 });
+  graniteBlock(b, 2.24, 0.23, 2.24, STONE.graniteDark, x, y0 + 2.2, z, { ry: facing, c: 0.06 });
+  const top = y0 + 2.43;
+  colliders.obb(x, z, 1.15, 1.15, facing, { tag: 'statue' });
+  colliders.obb(x, z, 2.2, 2.2, facing, { top: 0.3, tag: 'stylobate' });
+
+  // the figure, 3.5 m of bronze
+  aliyaFigure(new Sculpt(b, x, top, z, facing, 2.0, { statue: true }));
+
+  // her name in bronze letters on the front, the gold star above it
+  const face = 0.955 + 0.012;
+  panel(root, castLettersTex('aliya', [['ӘЛИЯ', 1], ['МОЛДАҒҰЛОВА', 1], ['1925 – 1944', 0.7]]),
+    1.6, 0.95, x + fx * face, y0 + 0.62, z + fz * face, facing, { alphaTest: 0.5, grime: 0 });
+  const st = starGeo(0.17, 0.05);
+  st.rotateY(facing);
+  st.translate(x + fx * (face - 0.02), y0 + 1.83, z + fz * (face - 0.02));
+  b.add(st, { color: METAL.gilt, mat: statueMat() });
+  // the soldier's helmet and kitbag cast in bronze on the stylobate
+  const k = new Sculpt(b, x + fx * 1.55 + rx * 0.7, Y + 0.3, z + fz * 1.55 + rz * 0.7, facing + 0.5, 1, { statue: true });
+  k.ball([0, 0.02, 0], [0.2, 0.17, 0.22], METAL.bronzeDark, 14);
+  k.loft([{ y: 0.0, rx: 0.235, rf: 0.255 }, { y: 0.03, rx: 0.22, rf: 0.24 }], METAL.bronzeDark, { seg: 20, capTop: true, capBottom: true });
+  k.ball([0.5, 0.17, 0.25], [0.2, 0.19, 0.16], METAL.bronze, 12, [0, 0.4, 0.1]);
+  k.loft([{ y: 0.3, x: 0.5, z: 0.25, rx: 0.08, rf: 0.06 }, { y: 0.38, x: 0.5, z: 0.25, rx: 0.04, rf: 0.03 }], METAL.bronze, { seg: 10, capTop: true });
+  k.sweep([[0.36, 0.3, 0.2], [0.3, 0.16, 0.02], [0.44, 0.02, -0.1]], 0.012, METAL.bronzeDark, { seg: 5 });
+
   plaque(ctx, {
-    x: x + fx * 1.7, z: z + fz * 1.7, y: 1.6, label: 'Read the plaque · Алия Молдагулова',
+    x: x + fx * 1.9, z: z + fz * 1.9, y: 1.4, label: 'Read the pedestal · Алия Молдагулова',
     title: 'Әлия Молдағұлова · Алия Молдагулова',
-    body: 'Снайпер, уроженка Актюбинской области. Погибла 14 января 1944 года под Новосокольниками. Герой Советского Союза (посмертно). Памятник открыт в 1960 году.',
+    body: 'Снайпер, уроженка Актюбинской области, на её счету 78 солдат и офицеров противника. Погибла 14 января 1944 года под Новосокольниками. Герой Советского Союза (посмертно). Бронзовая фигура высотой 3,5 м открыта в 2005 году; её бюст 1960 года стоит в старом городе, на улице Шернияза.',
   });
 }
 
@@ -569,8 +621,8 @@ function entrance(ctx, z0) {
     // low granite blocks either side of the alley, so the flame shows
     // from the street over them
     const x = X + s * 8;
-    b.box(2.4, 0.2, 1.1, STONE.graniteDark, x, Y, z0 + 1.2);
-    b.box(2.1, 1.25, 0.8, STONE.granite, x, 0.2, z0 + 1.2);
+    graniteBlock(b, 2.4, 0.2, 1.1, STONE.graniteDark, x, Y, z0 + 1.2, { c: 0.03 });
+    graniteBlock(b, 2.1, 1.25, 0.8, STONE.granite, x, 0.2, z0 + 1.2, { c: 0.04 });
     colliders.box(x - 1.2, z0 + 0.65, x + 1.2, z0 + 1.75, { tag: 'pylon' });
     star(b, x - s * 0.7, 0.88, z0 + 0.79, 0.24, METAL.gilt, 0.04);
   }

@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { cel } from '../../core/toon.js';
 import { canvasTex, cached, centerText, FONT, weather } from '../../core/textures.js';
 import { rngKit } from '../../core/util.js';
+import { Sculpt, graniteBlock } from '../landmarks/kit.js';
+import { abulkhairSculpture } from '../landmarks/abulkhair.js';
 
 /* ------------------------------------------------------------------ *
  * Landmark kit and the centre's two landmarks.
@@ -368,7 +370,6 @@ export function buildAkimat(ctx, { x, zFront }) {
 
 const BRONZE = 0x4c4736;
 const BRONZE_LIGHT = 0x6a634a;
-const BRONZE_DARK = 0x353126;
 
 /**
  * The equestrian monument. (x, z) is the centre; the horse faces
@@ -380,17 +381,18 @@ export function buildMonument(ctx, { x, z, facing = 0 }) {
 
   // stepped red granite platform, walkable
   const tiers = [[17, 12.5], [15.8, 11.3], [14.6, 10.1]];
-  tiers.forEach(([w, d], i) => batch.box(w, 0.3, d, i % 2 ? GRANITE_DARK : GRANITE, x, i * 0.3, z));
+  tiers.forEach(([w, d], i) => graniteBlock(batch, w, 0.3, d, i % 2 ? GRANITE_DARK : GRANITE, x, i * 0.3, z, { c: 0.035 }));
   ground.flat(x - 8.5, z - 6.25, x + 8.5, z + 6.25, 0.3, 'monument');
   ground.flat(x - 7.9, z - 5.65, x + 7.9, z + 5.65, 0.6, 'monument');
   ground.flat(x - 7.3, z - 5.05, x + 7.3, z + 5.05, 0.9, 'monument');
 
   // pedestal: plinth, shaft, cornice
   const top = 0.9 + 0.6 + 5.6 + 0.5;
-  batch.box(4.6, 0.6, 6.6, GRANITE_DARK, x, 0.9, z);
-  batch.box(3.4, 5.6, 5.4, GRANITE, x, 1.5, z);
-  batch.box(3.3, 0.25, 5.3, GRANITE_DARK, x, 4.2, z);
-  batch.box(4.0, 0.5, 6.0, GRANITE_DARK, x, 7.1, z);
+  graniteBlock(batch, 4.6, 0.6, 6.6, GRANITE_DARK, x, 0.9, z, { c: 0.06 });
+  graniteBlock(batch, 3.4, 5.6, 5.4, GRANITE, x, 1.5, z, { c: 0.03 });
+  graniteBlock(batch, 3.3, 0.25, 5.3, GRANITE_DARK, x, 4.2, z, { c: 0.02 });
+  graniteBlock(batch, 3.62, 0.14, 5.62, GRANITE_DARK, x, 6.96, z, { c: 0.03 });
+  graniteBlock(batch, 4.0, 0.5, 6.0, GRANITE_DARK, x, 7.1, z, { c: 0.07 });
   colliders.box(x - 2.3, z - 3.3, x + 2.3, z + 3.3, { tag: 'monument' });
 
   // bronze plaque on the front face
@@ -407,125 +409,9 @@ export function buildMonument(ctx, { x, z, facing = 0 }) {
   ctx.root.add(name);
 
   // the sculpture is authored facing -z at the origin, then placed
-  const s = new SculptBatch(batch, x, top, z, facing);
-  sculpt(s);
+  abulkhairSculpture(new Sculpt(batch, x, top, z, facing, 1, { statue: true }));
 
   return { plaque: [x + fx * (plaqueOff + 0.6), 3.1, z + fz * (plaqueOff + 0.6)], top };
-}
-
-/** Collects sculpture parts in local space and bakes them placed. */
-class SculptBatch {
-  constructor(batch, x, y, z, facing) {
-    this.batch = batch;
-    this.m = new THREE.Matrix4().compose(new THREE.Vector3(x, y, z),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(0, facing, 0)), new THREE.Vector3(1, 1, 1));
-  }
-  limb(a, b, r0, r1, color = BRONZE, seg = 9) {
-    const A = new THREE.Vector3(...a), B = new THREE.Vector3(...b);
-    const len = A.distanceTo(B);
-    const g = new THREE.CylinderGeometry(r1, r0, len, seg, 1, false);
-    g.translate(0, len / 2, 0);
-    const q = new THREE.Quaternion().setFromUnitVectors(_up, B.clone().sub(A).normalize());
-    g.applyMatrix4(new THREE.Matrix4().compose(A, q, new THREE.Vector3(1, 1, 1)));
-    g.applyMatrix4(this.m);
-    this.batch.add(g, { color });
-  }
-  ball(c, r, color = BRONZE, seg = 14) {
-    const [rx, ry, rz] = Array.isArray(r) ? r : [r, r, r];
-    const g = new THREE.SphereGeometry(1, seg, Math.max(6, seg - 4));
-    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...c), new THREE.Quaternion(), new THREE.Vector3(rx, ry, rz)));
-    g.applyMatrix4(this.m);
-    this.batch.add(g, { color });
-  }
-  box(w, h, d, c, color = BRONZE, rot = [0, 0, 0]) {
-    const g = new THREE.BoxGeometry(w, h, d);
-    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...c),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ')), new THREE.Vector3(1, 1, 1)));
-    g.applyMatrix4(this.m);
-    this.batch.add(g, { color });
-  }
-  cone(r, h, c, color = BRONZE, seg = 10, rot = [0, 0, 0]) {
-    const g = new THREE.ConeGeometry(r, h, seg);
-    g.applyMatrix4(new THREE.Matrix4().compose(new THREE.Vector3(...c),
-      new THREE.Quaternion().setFromEuler(new THREE.Euler(rot[0], rot[1], rot[2], 'YXZ')), new THREE.Vector3(1, 1, 1)));
-    g.applyMatrix4(this.m);
-    this.batch.add(g, { color });
-  }
-}
-
-/**
- * Horse and rider, heroic scale (about 1.35x life), front toward -z.
- * y = 0 is the top of the pedestal.
- */
-function sculpt(s) {
-  // bronze base slab the hooves stand on
-  s.box(1.5, 0.14, 3.6, [0, 0.07, 0], BRONZE_DARK);
-
-  // --- horse ---
-  s.ball([0, 2.05, 0], [0.56, 0.62, 1.22]);               // barrel
-  s.ball([0, 2.18, -0.9], [0.55, 0.66, 0.62]);            // chest
-  s.ball([0, 2.22, 0.92], [0.6, 0.64, 0.66]);             // rump
-  s.limb([0, 2.3, -1.05], [0, 3.35, -1.62], 0.44, 0.27);  // neck
-  s.ball([0, 3.38, -1.62], 0.28);                          // poll
-  s.limb([0, 3.42, -1.6], [0, 3.0, -2.25], 0.25, 0.15);   // head
-  s.ball([0, 2.98, -2.27], [0.16, 0.16, 0.19]);            // muzzle
-  s.cone(0.07, 0.24, [-0.11, 3.72, -1.56], BRONZE, 6, [0.25, 0, -0.15]);
-  s.cone(0.07, 0.24, [0.11, 3.72, -1.56], BRONZE, 6, [0.25, 0, 0.15]);
-  s.box(0.1, 0.18, 1.1, [0, 3.2, -1.3], BRONZE_DARK, [0.95, 0, 0]);   // mane
-  // legs: front left lifted in a walking step, the rest planted
-  const legs = [
-    // hip/shoulder, knee/hock, hoof
-    [[-0.3, 1.8, -0.95], [-0.32, 1.28, -1.42], [-0.3, 0.86, -1.22]],
-    [[0.3, 1.8, -0.95], [0.3, 0.95, -1.02], [0.3, 0.16, -1.08]],
-    [[-0.32, 1.95, 0.95], [-0.34, 0.95, 1.22], [-0.32, 0.16, 1.06]],
-    [[0.32, 1.95, 0.95], [0.34, 0.95, 1.22], [0.32, 0.16, 1.06]],
-  ];
-  for (const [a, b, c] of legs) {
-    s.limb(a, b, 0.21, 0.13);
-    s.ball(b, 0.13);
-    s.limb(b, c, 0.1, 0.085);
-    s.limb([c[0], c[1] - 0.14, c[2]], c, 0.13, 0.1, BRONZE_DARK, 8);
-  }
-  // tail: three segments sweeping down
-  s.limb([0, 2.45, 1.5], [0, 2.1, 1.85], 0.16, 0.12, BRONZE_DARK);
-  s.limb([0, 2.1, 1.85], [0, 1.45, 1.98], 0.12, 0.1, BRONZE_DARK);
-  s.limb([0, 1.45, 1.98], [0, 0.95, 1.9], 0.1, 0.05, BRONZE_DARK);
-
-  // --- saddle cloth ---
-  s.box(1.3, 0.12, 1.2, [0, 2.68, 0.05], BRONZE_DARK);
-
-  // --- rider ---
-  // thighs and shins down the horse's flanks, feet in stirrups
-  for (const side of [-1, 1]) {
-    s.limb([side * 0.28, 2.88, 0.08], [side * 0.6, 2.38, -0.32], 0.17, 0.13);
-    s.ball([side * 0.6, 2.38, -0.32], 0.13);
-    s.limb([side * 0.6, 2.38, -0.32], [side * 0.62, 1.78, -0.18], 0.12, 0.1);
-    s.box(0.18, 0.12, 0.36, [side * 0.62, 1.72, -0.25], BRONZE_DARK);
-  }
-  s.limb([0, 2.82, 0.05], [0, 3.72, 0.0], 0.36, 0.32);    // torso
-  s.ball([0, 3.66, 0.0], [0.5, 0.26, 0.32]);                // shoulders
-  s.limb([0, 3.82, 0], [0, 3.98, -0.02], 0.12, 0.11);      // neck
-  s.ball([0, 4.12, -0.03], [0.2, 0.23, 0.21]);              // head
-  s.cone(0.1, 0.28, [0, 3.92, -0.2], BRONZE_DARK, 7, [-2.6, 0, 0]);  // beard
-  // khan's hat: fur brim, tall crown, a plume
-  s.limb([0, 4.24, -0.02], [0, 4.4, -0.02], 0.27, 0.26, BRONZE_DARK, 12);
-  s.cone(0.22, 0.55, [0, 4.66, 0.0], BRONZE, 12);
-  s.limb([0, 4.85, 0.02], [0.02, 5.2, 0.12], 0.03, 0.015, BRONZE_DARK, 5);
-  // right arm raised forward and up, open hand
-  s.limb([0.42, 3.62, 0], [0.62, 4.08, -0.45], 0.12, 0.1);
-  s.ball([0.62, 4.08, -0.45], 0.1);
-  s.limb([0.62, 4.08, -0.45], [0.74, 4.55, -0.86], 0.095, 0.08);
-  s.ball([0.76, 4.62, -0.9], [0.09, 0.13, 0.06]);
-  // left arm holding the reins
-  s.limb([-0.42, 3.62, 0], [-0.5, 3.12, -0.28], 0.12, 0.1);
-  s.limb([-0.5, 3.12, -0.28], [-0.3, 3.0, -0.7], 0.095, 0.08);
-  s.limb([-0.3, 3.0, -0.72], [0, 3.02, -2.2], 0.02, 0.02, BRONZE_DARK, 4);
-  s.limb([-0.3, 3.0, -0.72], [0.14, 3.02, -2.18], 0.02, 0.02, BRONZE_DARK, 4);
-  // the shapan (robe) spreading over the horse's back behind the rider
-  s.box(0.95, 1.05, 0.12, [0, 3.2, 0.38], BRONZE, [0.5, 0, 0]);
-  s.box(0.7, 0.8, 0.1, [0, 2.6, 0.82], BRONZE, [0.9, 0, 0]);
-  // sword at the left hip
-  s.limb([-0.45, 2.9, 0.3], [-0.55, 2.2, 0.95], 0.04, 0.035, BRONZE_DARK, 6);
 }
 
 export const LANDMARK_COLORS = { CREAM, CREAM_LIGHT, STONE, GRANITE, GRANITE_DARK, BRONZE };
