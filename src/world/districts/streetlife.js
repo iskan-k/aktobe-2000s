@@ -12,6 +12,7 @@ import {
   addLarek, addPavilion, addBooth, addIceCream, addKvass, addFlowers,
   addPayphone, addPostbox, addBicycle, brandPoster,
 } from '../props/kiosk.js';
+import { FOOD_BUILD, FOOD_FOOT } from '../props/foodstalls.js';
 import { addMastBoard, addPostBoard, addLampBanners } from '../props/billboards.js';
 import {
   ATLAS, addQuad, roadSignGeo, signBackGeo, streetPlateGeo, addSignPost,
@@ -25,6 +26,8 @@ import { addDog, addPigeonFlock, addSparrows } from '../props/animals.js';
  *   shelters  one at every stop in plan.js STOPS (props/busstop.js)
  *   kiosks    lareks, pavilions, booths, ice cream and kvass, flowers,
  *             payphones and post boxes, clustered round the stops
+ *   food      samsa tandyrs, shashlik mangals, chebureki trailers, tea
+ *             and baursak tables, kumys stands (props/foodstalls.js)
  *   boards    6 x 3 m billboards on the avenue median and on posts,
  *             banners on the median lamps
  *   signs     GOST road signs, street name plates, pedestrian rails
@@ -79,6 +82,10 @@ const ITEMS = {
     label: '«Turbo» chewing gum', price: 15, what: 'chewing gum', sound: 'paper', hold: 'turbo',
     toast: 'Turbo gum. The insert is a Lamborghini Countach. Keep it.',
   },
+  belyash: {
+    label: 'A hot belyash', price: 50, what: 'a belyash', sound: 'paper', hold: 'belyash',
+    toast: 'A belyash from the warmer behind the glass. Still hot in the middle.',
+  },
   bread: {
     label: 'A loaf of white bread', price: 40, what: 'bread', sound: 'paper', hold: 'loaf',
     toast: 'A warm brick of white bread. The crust is gone before you get home.',
@@ -119,7 +126,7 @@ const KIOSKS = [
   { road: 'ave', side: 1, at: 188, kind: 'pavilion', o: { w: 5.6, d: 2.4, sign: ['Дүкен', 'Магазин «Айгүл»'], item: ITEMS.bread } },
   // Вокзальная, the station side
   { road: 'vokzal', side: 0, at: -56, kind: 'larek', o: { w: 2.3, d: 1.6, item: ITEMS.duchess, variant: 1 }, sparrows: true, bike: true },
-  { road: 'vokzal', side: 0, at: -59.2, kind: 'larek', o: { w: 2.3, d: 1.6, sign: ['Самса', 'Беляши'], variant: 2, poster: 'kcell' } },
+  { road: 'vokzal', side: 0, at: -59.2, kind: 'larek', o: { w: 2.3, d: 1.6, sign: ['Самса', 'Беляши'], item: ITEMS.belyash, variant: 2, poster: 'kcell' } },
   { road: 'vokzal', side: 0, at: -38, kind: 'icecream' },
   { road: 'vokzal', side: 0, at: -41.2, kind: 'payphone' },
   // one larek each on Маресьева and Пушкина
@@ -129,6 +136,32 @@ const KIOSKS = [
   { road: 'mid', side: 0, at: 41, kind: 'payphone' },
   { road: 'mid', side: 0, at: 42.2, kind: 'postbox' },
   { road: 'east', side: 0, at: -55, kind: 'payphone' },
+  // street food: the bazaar stops
+  { road: 'ave', side: 0, at: 91.5, kind: 'samsa', sparrows: true },
+  { road: 'ave', side: 0, at: 28.5, kind: 'chebureki' },
+  { road: 'ave', side: 1, at: 73, kind: 'chai' },
+  { road: 'ave', side: 1, at: 43, kind: 'shashlik' },
+  // the station and the bus terminus
+  { road: 'vokzal', side: 0, at: -66, kind: 'samsa', sparrows: true },
+  { road: 'vokzal', side: 0, at: -30, kind: 'chebureki' },
+  { road: 'vokzal', side: 0, at: -76, kind: 'kvass' },
+  { road: 'vokzal', side: 1, at: -44, kind: 'shashlik' },
+  // the Nurdaulet mosque and shopping centre on the avenue
+  { road: 'ave', side: 0, at: -198, kind: 'chai' },
+  { road: 'ave', side: 0, at: -205, kind: 'samsa' },
+  { road: 'ave', side: 0, at: -212, kind: 'kumys' },
+  // the park by the akimat, along ул. Пушкина
+  { road: 'west', side: 1, at: 58, kind: 'chai' },
+  { road: 'west', side: 1, at: 72, kind: 'kvass' },
+  { road: 'west', side: 1, at: 92, kind: 'shashlik' },
+  // the side streets: 12 microdistrict, the school, Маресьева
+  { road: 'mid', side: 1, at: 88, kind: 'shashlik' },
+  { road: 'east', side: 0, at: -36, kind: 'chebureki' },
+  { road: 'south', side: 0, at: 20, kind: 'kvass' },
+  // summer trade on the south edge, by the stele and the yurt
+  { road: 'south', side: 1, at: 126, kind: 'samsa' },
+  { road: 'south', side: 1, at: 184, kind: 'chebureki' },
+  { road: 'south', side: 1, at: 150, kind: 'kumys' },
 ];
 
 /**
@@ -396,10 +429,12 @@ const FOOT = {
   flowers: () => [2.8, 2.4],
   payphone: () => [1.0, 1.0],
   postbox: () => [0.6, 0.6],
+  ...Object.fromEntries(Object.entries(FOOD_FOOT).map(([k, f]) => [k, () => f])),
 };
 const BUILD = {
   larek: addLarek, pavilion: addPavilion, booth: addBooth, icecream: addIceCream,
   kvass: addKvass, flowers: addFlowers, payphone: addPayphone, postbox: addPostbox,
+  ...FOOD_BUILD,
 };
 const BOTTLES = [0x5a3a1a, 0x3c6a3a, 0x6a4a22, 0x2e5a36];
 
@@ -410,7 +445,10 @@ function buildKiosks(ctx, P, rng) {
     const o = { ...(k.o || {}) };
     const [wa, da] = FOOT[k.kind](o);
     const spot = P.slot(s, k.at, wa, da, { kind: k.kind, search: 3 });
-    if (!spot) continue;
+    if (!spot) {
+      ctx.spots.missedKiosks = [...(ctx.spots.missedKiosks || []), `${k.kind}@${k.road}:${k.at}`];
+      continue;
+    }
     if (o.poster) o.poster = brandPoster(o.poster);
     BUILD[k.kind](ctx, spot.x, spot.z, spot.yaw, o);
     placed.push({ k, s, spot, wa, da });

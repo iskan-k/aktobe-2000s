@@ -399,6 +399,7 @@ function yurt(ctx) {
       if (!game.pay(100, 'kumys')) return;
       game.audio.play('pour', { pos: { x: tx, y: 1, z: tz }, volume: 0.8 });
       game.hud.flash('Қымыз · sour, fizzy and cold from the churn', 2800);
+      game.hands?.give('kumys');
     },
   });
 
@@ -513,6 +514,7 @@ function cafe(ctx) {
       if (!game.pay(250, 'shashlyk')) return;
       game.audio.play('kioskWindow', { pos: { x: px, y: 1.2, z: pz }, volume: 0.6 });
       game.hud.flash('Шашлык on a skewer, raw onion, a slice of лепёшка', 2800);
+      game.hands?.give('shashlik');
     },
   });
 

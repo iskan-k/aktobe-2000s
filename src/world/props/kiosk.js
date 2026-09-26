@@ -31,33 +31,33 @@ export function frame(ctx, x, z, yaw, y = KERB_H) {
   return { ctx, batch: ctx.batch, x, y, z, yaw };
 }
 
-function L(o, lx, ly, lz) {
+export function L(o, lx, ly, lz) {
   const [dx, dz] = rotXZ(lx, lz, o.yaw);
   return [o.x + dx, o.y + ly, o.z + dz];
 }
 
-function box(o, w, h, d, color, lx, ly, lz, extra = {}) {
+export function box(o, w, h, d, color, lx, ly, lz, extra = {}) {
   const [x, y, z] = L(o, lx, ly, lz);
   o.batch.box(w, h, d, color, x, y, z, { ...extra, ry: o.yaw + (extra.ry || 0) });
 }
 
-function cyl(o, r, h, color, lx, ly, lz, extra = {}) {
+export function cyl(o, r, h, color, lx, ly, lz, extra = {}) {
   const [x, y, z] = L(o, lx, ly, lz);
   o.batch.cyl(r, h, color, x, y, z, { ...extra, ry: o.yaw + (extra.ry || 0) });
 }
 
-function quad(o, geo, lx, ly, lz, localYaw = 0, mat = ATLAS.material) {
+export function quad(o, geo, lx, ly, lz, localYaw = 0, mat = ATLAS.material) {
   const [x, y, z] = L(o, lx, ly, lz);
   addQuad(o.batch, geo, x, y, z, o.yaw + localYaw, { mat });
 }
 
 /** Rotated footprint collider in the local frame. */
-function collide(o, lx, lz, w, d, top = 2.6) {
+export function collide(o, lx, lz, w, d, top = 2.6) {
   const [cx, , cz] = L(o, lx, 0, lz);
   o.ctx.colliders.obb(cx, cz, w / 2, d / 2, o.yaw, { top: o.y + top, tag: 'kiosk' });
 }
 
-function interact(o, lx, ly, lz, w, h, d, label, action, enabled) {
+export function interact(o, lx, ly, lz, w, h, d, label, action, enabled) {
   const [x, y, z] = L(o, lx, ly, lz);
   return o.ctx.interact({ x, y, z, w, h, d, ry: o.yaw, label, action, enabled });
 }
@@ -182,7 +182,7 @@ function pressGeo(w, h) {
  * ------------------------------------------------------------------ */
 
 /** An eight-panel market umbrella, alternating two colours. */
-function umbrella(o, lx, lz, { r = 1.3, h = 2.3, a = 0xc8302a, b = 0xf2eee4 } = {}) {
+export function umbrella(o, lx, lz, { r = 1.3, h = 2.3, a = 0xc8302a, b = 0xf2eee4 } = {}) {
   cyl(o, 0.025, h, 0x8a8a88, lx, 0, lz, { seg: 5 });
   const [x, y, z] = L(o, lx, h, lz);
   for (let i = 0; i < 8; i++) {
@@ -202,7 +202,7 @@ function umbrella(o, lx, lz, { r = 1.3, h = 2.3, a = 0xc8302a, b = 0xf2eee4 } = 
   }
 }
 
-function priceCard(o, key, text, lx, ly, lz, localYaw = 0, w = 0.36, h = 0.24) {
+export function priceCard(o, key, text, lx, ly, lz, localYaw = 0, w = 0.36, h = 0.24) {
   const geo = boardGeo(`price|${key}`, w, h, { bg: '#f6f2e4', fg: '#20308a', lines: text, family: FONT.narrow, wear: 0.2, weight: 'bold' });
   quad(o, geo, lx, ly, lz, localYaw);
 }
