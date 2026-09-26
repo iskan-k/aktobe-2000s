@@ -202,10 +202,12 @@ export const BLOCKS = {
 };
 
 /**
- * Where the walker starts: the avenue's north pavement at the bazaar bus
- * stop, looking east along the traffic with the evening sun behind you.
+ * Where the walker starts: the east pavement of ул. Пушкина across from
+ * Nurdaulet, looking north-west past the NURDAULET lettering on the
+ * shopping centre to the turquoise dome of the mosque and the minaret,
+ * with the route 4 buses passing on the street between.
  */
-export const SPAWN = { x: 32, z: -10.8, yaw: -1.8, pitch: -0.03 };
+export const SPAWN = { x: -143.2, z: -29, yaw: 0.74, pitch: 0.25 };
 
 /**
  * Is (x, z) on a carriageway (including junction boxes and corner
