@@ -5,7 +5,18 @@ import { buildMasts } from '../stadium/masts.js';
 import { buildBall } from '../stadium/ball.js';
 import { buildGrounds } from '../stadium/grounds.js';
 import { buildFront } from '../stadium/front.js';
-import { TRAINING } from '../stadium/layout.js';
+import { TRAINING, FORECOURT } from '../stadium/layout.js';
+import { addSamsaStall, addShashlikStall } from '../props/foodstalls.js';
+import { addKvass } from '../props/kiosk.js';
+
+/** Match-day trade along the west edge of the forecourt, fronts to the plaza (east). */
+const FORECOURT_FOOD = [
+  { build: addSamsaStall, z: 234 },
+  { build: addKvass, z: 290 },
+  { build: addShashlikStall, z: 318 },
+];
+const FOOD_X = FORECOURT.x0 + 13;
+const FACE_EAST = -Math.PI / 2;
 
 /* ------------------------------------------------------------------ *
  * The Central Stadium, home of FC Aktobe, south of the town fence and
@@ -63,6 +74,10 @@ export const stadium = {
     const board = buildMasts(sctx);
     buildBall(sctx, board);
     buildFront(sctx);
+    for (const f of FORECOURT_FOOD) {
+      const y = ctx.ground.heightAt(FOOD_X, f.z, 5);
+      f.build(sctx, FOOD_X, f.z, FACE_EAST, { y });
+    }
     batch.flush(ctx.root);
   },
 };

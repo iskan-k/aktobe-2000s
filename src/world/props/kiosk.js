@@ -475,8 +475,8 @@ export function addIceCream(ctx, x, z, yaw) {
 }
 
 /** The yellow kvass barrel on its trailer, with a table of glasses. */
-export function addKvass(ctx, x, z, yaw) {
-  const o = frame(ctx, x, z, yaw);
+export function addKvass(ctx, x, z, yaw, opts = {}) {
+  const o = frame(ctx, x, z, yaw, opts.y ?? KERB_H);
   const yellow = 0xe8b72a;
   // chassis, wheels, drawbar
   box(o, 2.0, 0.12, 0.9, 0x3a3c3e, 0, 0.42, 0);

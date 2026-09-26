@@ -23,6 +23,8 @@ const MID_W = [MID.c - outerEdge(MID, 0), MID.c + outerEdge(MID, 1)];
 const ROW_A = { back: S.z0 + 0.5, front: S.z0 + 6.5 };     // doors face south
 const ROW_B = { front: S.z0 + 14.5, back: S.z0 + 20.5 };   // doors face north
 const LINE_Z = 153.5;
+// where the trodden path from the waste ground goes through the town fence to the stadium car park
+const FENCE_GAP = { x: 92, half: 2.2 };
 const DOORS = [0x5a7a5a, 0x4a6a8a, 0x7a4a3a, 0x8a8a84, 0x6a3a3a, 0x9a8a5a, 0x3a5a6a, 0x6a7a4a];
 
 /* ------------------------------------------------------------------ garages */
@@ -161,7 +163,7 @@ function wasteGround(ctx, x0, x1) {
   // the trodden paths
   const path = [[MID_W[1], 127.5], [P.x0 - 1, P.z0 - 2], [P.x1 + 2, P.z0 - 2.5], [96, 136], [x1, 135]];
   strip(batch, path, 1.3, -0.02, SURF.yard, TILE.yard);
-  strip(batch, [[P.x1 + 2, P.z0 - 2.5], [84, 148], [92, TOWN_Z1]], 1.1, -0.019, SURF.yard, TILE.yard);
+  strip(batch, [[P.x1 + 2, P.z0 - 2.5], [84, 148], [FENCE_GAP.x, TOWN_Z1 + 3.5]], 1.1, -0.019, SURF.yard, TILE.yard);
   // weeds, bushes, a heap of rubbish and the shell of a Moskvich
   // weeds in patches: wormwood and dry grass mostly, burdock where it is damp
   for (let i = 0; i < 70; i++) {
@@ -274,7 +276,12 @@ function steppe(batch) {
   }
   // a wire fence on concrete posts marks where the town stops
   const fz = TOWN_Z1 - 0.4;
-  for (const [a, b] of [[BOUNDS.x0, MID_W[0] - 0.5], [MID_W[1] + 0.5, BOUNDS.x1]]) {
+  const runs = [
+    [BOUNDS.x0, MID_W[0] - 0.5],
+    [MID_W[1] + 0.5, FENCE_GAP.x - FENCE_GAP.half],
+    [FENCE_GAP.x + FENCE_GAP.half, BOUNDS.x1],
+  ];
+  for (const [a, b] of runs) {
     for (let x = a; x <= b; x += 3) batch.box(0.14, 1.5, 0.14, 0xb4b0a6, x, 0, fz, { rz: Math.sin(x * 1.7) * 0.05, cast: false });
     for (const y of [0.45, 0.9, 1.35]) batch.tube(a, y, fz, b, y, fz, 0.008, 0x5a5854, { seg: 3, cast: false });
   }

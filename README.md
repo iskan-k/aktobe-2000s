@@ -57,6 +57,7 @@ npm run dev        # then open http://127.0.0.1:5188
   - Trolleybus 1, along the avenue.
   - Bus 4 and bus 17.
   - Marshrutkas 31 and 44. Wave one down anywhere along the kerb.
+  - Bus 12 to the airport.
 - **Your car.** A семёрка (VAZ-2107) with a modelled interior. Press V to
   call it.
 - **The railway.** Aktobe-1 station with its platform, footbridge, clocks,
@@ -71,20 +72,36 @@ npm run dev        # then open http://127.0.0.1:5188
   - The central bazaar.
   - A private-sector street of houses behind fences.
   - The station quarter, with the Эр 791-57 steam engine on its plinth.
+  - The Nurdaulet mosque and shopping centre, where you start.
 - **Sights on the south edge.**
-  - The Memorial of Glory: the 19 m obelisk, the Eternal Flame (lay
-    carnations for 150 ₸), name walls, a T-34 and the Aliya Moldagulova
-    statue.
+  - The Memorial of Glory: the 19 m obelisk with its Civil War soldier,
+    the Eternal Flame (lay carnations for 150 ₸), name walls, a T-34 and
+    the 2005 bronze of Aliya Moldagulova.
   - The Lenin statue in its square, as it stood until 2018.
+  - The statues have modelled faces, and the Abulkhair Khan monument on the
+    square is a horse and rider.
   - The АҚТӨБЕ stele with its mosaic.
   - A kumys yurt with a mare and foal, and the shashlyk café «Жайлау».
   - A silver heating main that climbs over ул. Айтеке би.
+- **South of the town fence.**
+  - The Central Stadium, home of FC Aktobe, the 2005 champions: four stands
+    in red and white, floodlights, a bulb scoreboard and the КАССА. Buy a
+    ticket, climb the stands, sit down, and kick a ball on the pitch. A goal
+    shows on the scoreboard.
+  - Aktobe airport on ул. Бокенбай батыра: the terminal, the tower, and an
+    apron behind a see-through fence. Every few minutes an Air Astana,
+    SCAT, Starline.kz or Euro-Asia Air flight lands from the east or takes
+    off to the west.
+- **Animals.** About 20 dogs, 35 cats and 16 horses, with idle movement:
+  stray packs, dogs on chains that bark at you, cats on benches and car
+  bonnets, a cart horse and a herd on the steppe. Press E to pet one.
 - **Street life.** Kiosks and a bazaar where you can buy things with your
   1,500 tenge. Food and drink go into your hand: пломбир, эскимо, a brick
   loaf, lepyoshka, Тархун, Буратино and Дюшес lemonade, kvass in a гранёный
-  стакан, Pepsi, семечки, kurt and strawberries. Click to eat or drink, and
-  drop the empty in any bin. There are also payphones, a post box, pigeons,
-  dogs, a cat, swings and a carousel, carpets to beat, a water pump, podyezd
+  стакан, Pepsi, семечки, kurt and strawberries. Street stalls sell samsa
+  from the tandyr, shashlik, chebureki and belyashi, tea with baursaks, and
+  kumys and shubat. Click to eat or drink, and drop the empty in any bin. There are also payphones, a post box, pigeons,
+  swings and a carousel, carpets to beat, a water pump, podyezd
   doors, and ground-floor flats turned into shops.
 
 ## Development
@@ -108,6 +125,10 @@ npm run dev        # then open http://127.0.0.1:5188
   passengers.
 - When the barriers close, queues on пр. Санкибай батыра can wait about a
   minute.
+- The blue spruces still use the older faceted style.
+- The airport runway runs east to west. The real one is 12/30.
+- Some period details are best guesses and marked so in the code: the
+  Moldagulova pose, the stadium poster's match date and the 2007 prices.
 - Headless Chrome on an Apple M5 Mac renders 1080p at about 200 to 300 fps.
   A slower laptop with integrated graphics is untested. The game lowers its
   render scale on its own if the frame rate drops.
