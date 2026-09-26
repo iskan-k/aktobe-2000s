@@ -160,10 +160,21 @@ const MARK_FOLIAGE = /* glsl */ `
   gl_FragColor.a = 0.0;
 `;
 
+/**
+ * Skip the cel material's world-noise grime: two octaves of value noise
+ * per fragment is a real cost on layered alpha-tested cards, and a leaf
+ * or grass texture already carries its own variation.
+ */
+export function withoutGrime(shader) {
+  shader.fragmentShader = shader.fragmentShader
+    .replace('float gN = cNoise( vCWorld * 0.31 ) * 0.62 + cNoise( vCWorld * 2.7 ) * 0.38;', 'float gN = 0.5;');
+}
+
 function withWind(mat, card) {
   const base = mat.onBeforeCompile;
   mat.onBeforeCompile = (shader, renderer) => {
     base(shader, renderer);
+    withoutGrime(shader);
     shader.uniforms.uFolTime = FOLIAGE_TIME;
     shader.vertexShader = (card ? '#define LEAF_CARD\n' : '') + 'uniform float uFolTime;\n' +
       shader.vertexShader.replace('#include <begin_vertex>', WIND_VERT);

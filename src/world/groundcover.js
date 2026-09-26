@@ -4,7 +4,7 @@ import { Batch } from '../core/batch.js';
 import { SURF } from '../core/surfaces.js';
 import { rngKit } from '../core/util.js';
 import { BOUNDS } from './plan.js';
-import { FOLIAGE_TIME } from './props/foliage.js';
+import { FOLIAGE_TIME, withoutGrime } from './props/foliage.js';
 import { tuftTex, decalTex, DECAL } from './groundcoverTex.js';
 
 /* ------------------------------------------------------------------ *
@@ -28,8 +28,8 @@ import { tuftTex, decalTex, DECAL } from './groundcoverTex.js';
  * ------------------------------------------------------------------ */
 
 const CHUNK = 24;           // m, tuft instancing cell
-const SHOW = 46;            // m, tufts fade to nothing by this distance
-const FADE_FROM = 30;       // m, and start sinking here
+const SHOW = 38;            // m, tufts fade to nothing by this distance
+const FADE_FROM = 25;       // m, and start sinking here
 const CELL = 8;             // m, surface lookup grid
 
 /* ---------------- reading the ground ---------------- */
@@ -174,6 +174,7 @@ function tuftMaterial() {
   const base = m.onBeforeCompile;
   m.onBeforeCompile = (shader, renderer) => {
     base(shader, renderer);
+    withoutGrime(shader);
     shader.uniforms.uFolTime = FOLIAGE_TIME;
     shader.vertexShader = 'uniform float uFolTime;\nattribute float aVariant;\n' + shader.vertexShader
       .replace('#include <begin_vertex>', /* glsl */ `
@@ -300,6 +301,9 @@ function decalMat() {
       map: decalTex(), transparent: true, depthWrite: false, bands: 3, grime: 0.03, dirt: 0,
       polygonOffset: 3, cache: false,
     });
+    const base = decalMatCache.onBeforeCompile;
+    decalMatCache.onBeforeCompile = (shader, renderer) => { base(shader, renderer); withoutGrime(shader); };
+    decalMatCache.customProgramCacheKey = () => 'cel2-decal';
   }
   return decalMatCache;
 }
