@@ -7,6 +7,8 @@ import { rngKit } from '../../core/util.js';
 import { Batch } from '../../core/batch.js';
 import { BLOCKS } from '../plan.js';
 import { addWires } from '../props/street.js';
+import { addWeeds } from '../props/plants.js';
+import { addTree } from '../props/trees.js';
 import { addPlot, fenceRun } from '../buildings/house.js';
 import { frame, tbox, TILES, KIT } from '../buildings/houseKit.js';
 import '../buildings/houseSounds.js';
@@ -436,10 +438,16 @@ function emptyLot(ctx, p) {
     batch.box(1.0, 0.8, 1.0, 0xa65a42, b[0], 0, b[1], { ry: p.ry + i * 0.2 });
   }
   const rng = rngKit(p.seed);
-  for (let i = 0; i < 40; i++) {
+  for (let i = 0; i < 34; i++) {
     const w = L(rng.range(0.5, p.W - 0.5), rng.range(1, p.D - 0.5));
-    batch.box(0.3, rng.range(0.3, 0.9), 0.3, rng.pick([0x7f8a44, 0x9a9a58, 0x6e8040]), w[0], -0.02, w[1], { ry: rng.range(0, 3), mat: 'foliage' });
+    addWeeds(batch, w[0], w[1], p.seed * 100 + i, { scale: rng.range(0.8, 1.3) });
   }
+  // a self-seeded maple and an acacia that took over the back
+  const t = L(p.W * 0.7, p.D - 3);
+  addTree(batch, 'maple', t[0], t[1], p.seed + 3, { scale: 0.8, whitewash: false });
+  ctx.colliders.circle(t[0], t[1], 0.25, { tag: 'tree' });
+  const a = L(p.W * 0.25, p.D - 2);
+  addTree(batch, 'acacia', a[0], a[1], p.seed + 4, { scale: 1.1 });
   const sale = new THREE.Mesh(new THREE.PlaneGeometry(1.2, 0.7), cel({ map: signTex({ w: 256, h: 150, bg: '#ffffff', fg: '#1a1a1a', lines: ['САТЫЛАДЫ', 'ПРОДАЁТСЯ', 'тел. 21-45-78'], sizes: [1, 1, 0.8], wear: 0.9, seed: 9, weight: '700' }), cache: false }));
   const sp = L(p.W / 2, 0.25);
   sale.position.set(sp[0], 1.3, sp[1]);

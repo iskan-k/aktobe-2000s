@@ -2,6 +2,7 @@ import * as THREE from 'three';
 import { SURF, TILE, worldUV } from '../../core/surfaces.js';
 import { rngKit } from '../../core/util.js';
 import { addTree } from '../props/trees.js';
+import { addCropRow } from '../props/plants.js';
 import { addBench } from '../props/street.js';
 import { KIT, TILES, tbox, tboxGeo, mtx, frame, quadGeo, scaleUV } from './houseKit.js';
 
@@ -364,19 +365,14 @@ function beds(ctx, L, ry, x0, z0, x1, z1, rng) {
   for (let i = 0; i < rows; i++) {
     const z = z0 + (i + 0.5) * ((z1 - z0) / rows);
     const a = L((x0 + x1) / 2, z);
-    const kind = rng.pick(['potato', 'potato', 'greens', 'tomato', 'bare']);
+    const kind = rng.pick(['potato', 'potato', 'potato', 'greens', 'tomato', 'cabbage', 'bare']);
     if (kind === 'bare') {
       batch.box(x1 - x0, 0.12, 0.55, 0x7e6a4e, a[0], -0.04, a[1], { ry, cast: false });
       continue;
     }
     batch.box(x1 - x0, 0.1, 0.6, 0x6e5a40, a[0], -0.04, a[1], { ry, cast: false });
-    const n = Math.floor((x1 - x0) / 0.55);
-    for (let k = 0; k < n; k++) {
-      const p = L(x0 + (k + 0.5) * ((x1 - x0) / n), z);
-      const hgt = kind === 'tomato' ? 0.7 : kind === 'greens' ? 0.18 : 0.4;
-      const col = kind === 'greens' ? 0x6f9a3e : kind === 'tomato' ? 0x4f7a34 : 0x5f8a3c;
-      batch.box(0.42, hgt, 0.42, col, p[0], 0.04, p[1], { ry: ry + k, mat: 'foliage' });
-    }
+    const p0 = L(x0, z), p1 = L(x1, z);
+    addCropRow(batch, p0[0], p0[1], p1[0], p1[1], kind, rng.int(1, 1e6), { y: 0.06, step: kind === 'greens' ? 0.4 : 0.55 });
   }
 }
 
@@ -455,14 +451,22 @@ export function addPlot(ctx, p) {
   const barrel = L(houseLeft ? hx + HW + 0.6 : hx - 0.6, HD - 0.6);
   batch.cyl(0.32, 0.9, rng.pick([0x3e6aa6, 0x4f8a4a, 0x7a2626]), barrel[0], 0, barrel[1], { seg: 10 });
 
-  // garden: beds and whitewashed fruit trees
+  // garden: beds and whitewashed fruit trees, a lilac by the house, and
+  // now and then an old elm someone's grandfather planted
   const g0 = HD + 5.2, g1 = p.D - 2.8;
   if (g1 - g0 > 2) beds(ctx, L, p.ry, 1.2, g0, p.W - (houseLeft ? 5.4 : 1.2), g1, rng);
   const trees = rng.int(1, 3);
   for (let i = 0; i < trees; i++) {
     const t = L(rng.range(1.8, p.W - 1.8), rng.range(HD + 3, p.D - 2));
-    addTree(batch, rng.pick(['maple', 'young', 'elm']), t[0], t[1], p.seed * 7 + i, { scale: rng.range(0.6, 0.8) });
+    const kind = rng.pick(['apple', 'apple', 'cherry', 'cherry', 'apricot', 'apricot', 'elm']);
+    const scale = kind === 'elm' ? rng.range(0.7, 0.9) : rng.range(0.8, 1.0);
+    addTree(batch, kind, t[0], t[1], p.seed * 7 + i, { scale });
     ctx.colliders.circle(t[0], t[1], 0.2, { tag: 'tree' });
+  }
+  if (rng.chance(0.5)) {
+    const t = L(houseLeft ? hx + HW + 1.3 : hx - 1.3, HD + 2.6);
+    addTree(batch, rng.pick(['lilac', 'lilac', 'acacia']), t[0], t[1], p.seed * 7 + 5, { scale: rng.range(0.8, 1.0) });
+    ctx.colliders.circle(t[0], t[1], 0.45, { tag: 'tree' });
   }
 
   // a bench outside the wicket

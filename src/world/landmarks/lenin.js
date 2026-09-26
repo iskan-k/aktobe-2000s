@@ -1,6 +1,6 @@
 import { SURF, TILE, hQuad, splitRect } from '../../core/surfaces.js';
-import { rngKit } from '../../core/util.js';
 import { addTree } from '../props/trees.js';
+import { addFlowerBed, ringSpots } from '../props/plants.js';
 import { addBench, addLamp } from '../props/street.js';
 import { Sculpt, STONE, coatedFigure, plaqueTex, panel, plaque } from './kit.js';
 import { MAIN } from './heating.js';
@@ -29,11 +29,8 @@ export function buildLenin(ctx, z0) {
   // round bed of red salvias the pedestal stands in
   b.cyl(5.2, 0.28, STONE.greyGranite, x, Y, z, { seg: 28 });
   b.cyl(4.9, 0.3, 0x4f3a2a, x, Y, z, { seg: 28 });
-  const rng = rngKit(1983);
-  for (let i = 0; i < 90; i++) {
-    const a = rng.range(0, Math.PI * 2), r = rng.range(2.4, 4.7);
-    b.box(0.2, 0.16, 0.2, rng.chance(0.82) ? 0xc42f2a : 0xe8e2d6, x + Math.cos(a) * r, 0.3, z + Math.sin(a) * r, { cast: false });
-  }
+  addFlowerBed(b, ringSpots(x, z, 2.4, 4.6, 1983, 0.16), 1983,
+    { y: 0.28, colors: [0xc42f2a, 0xc42f2a, 0xc42f2a, 0xc42f2a, 0xe8e2d6], height: 0.26, heads: 4 });
   colliders.circle(x, z, 5.2, { top: 0.3, tag: 'bed' });
 
   // the pedestal: a stepped grey granite block with the name

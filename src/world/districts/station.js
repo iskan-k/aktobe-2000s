@@ -6,6 +6,7 @@ import { rngKit } from '../../core/util.js';
 import { TYPES } from '../../vehicles/catalog.js';
 import { BLOCKS, BOUNDS, roadById, outerEdge } from '../plan.js';
 import { addTree } from '../props/trees.js';
+import { addFlowerBed, rectSpots } from '../props/plants.js';
 import { addBench, addBin, addLamp } from '../props/street.js';
 import { texPlane } from '../buildings/landmarks.js';
 import { sitController } from './square.js';
@@ -67,9 +68,8 @@ function surfaces(ctx) {
 function planter(b, ctx, x, z, w, d, rng) {
   b.box(w, 0.6, d, GRANITE, x, 0, z);
   b.box(w - 0.3, 0.05, d - 0.3, 0x4f3a2a, x, 0.6, z);
-  for (let i = 0; i < Math.round(w * d * 4); i++) {
-    b.box(0.18, 0.12, 0.18, rng.pick([0xc42f2a, 0xf5f2ea, 0xd8453a, 0xe0a02a]), x + rng.range(-w / 2 + 0.3, w / 2 - 0.3), 0.62, z + rng.range(-d / 2 + 0.3, d / 2 - 0.3), { cast: false });
-  }
+  addFlowerBed(b, rectSpots(x, z, w - 0.6, d - 0.6, 0, rng.int(1, 1e6), 0.22), rng.int(1, 1e6),
+    { y: 0.62, colors: [0xc42f2a, 0xf5f2ea, 0xd8453a, 0xe0a02a], height: 0.3, heads: 4 });
   ctx.colliders.box(x - w / 2, z - d / 2, x + w / 2, z + d / 2, { top: 0.6 });
 }
 

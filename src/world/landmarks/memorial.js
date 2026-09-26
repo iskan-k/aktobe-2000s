@@ -5,6 +5,7 @@ import { canvasTex, cached, centerText, FONT, weather } from '../../core/texture
 import { rngKit } from '../../core/util.js';
 import { defineLoop } from '../../core/audio.js';
 import { addTree } from '../props/trees.js';
+import { addFlowerBed } from '../props/plants.js';
 import { addBench, addLamp } from '../props/street.js';
 import { Sculpt, STONE, METAL, coatedFigure, plaqueTex, panel, plaque } from './kit.js';
 import { MAIN } from './heating.js';
@@ -438,14 +439,9 @@ function nameWalls(ctx) {
     const along = (a, off) => [w.x + Math.cos(w.ry) * a + fx * off, w.z - Math.sin(w.ry) * a + fz * off];
     const [bx, bz] = along(0, T / 2 + 0.55);
     b.box(L - 0.4, 0.2, 0.9, 0x4f3a2a, bx, Y, bz, { ry: w.ry, cast: false });
-    for (let i = 0; i < 70; i++) {
-      const [lx, lz] = along(rng.range(-L / 2 + 0.4, L / 2 - 0.4), T / 2 + 0.55 + rng.range(-0.3, 0.3));
-      b.box(0.3, 0.12, 0.3, rng.pick([0x3f6b2e, 0x4a7a36]), lx, 0.18, lz, { ry: rng.range(0, 3), cast: false });
-    }
-    for (let i = 0; i < 160; i++) {
-      const [hx, hz] = along(rng.range(-L / 2 + 0.4, L / 2 - 0.4), T / 2 + 0.55 + rng.range(-0.34, 0.34));
-      b.box(0.09, 0.07, 0.09, rng.chance(0.75) ? 0xc42f2a : 0xeee8dc, hx, 0.27 + rng.range(0, 0.06), hz, { ry: rng.range(0, 3), cast: false });
-    }
+    const spots = [];
+    for (let i = 0; i < 56; i++) spots.push(along(rng.range(-L / 2 + 0.4, L / 2 - 0.4), T / 2 + 0.55 + rng.range(-0.3, 0.3)));
+    addFlowerBed(b, spots, w.seed * 3, { y: 0.18, colors: [0xc42f2a, 0xc42f2a, 0xc42f2a, 0xeee8dc], height: 0.22, heads: 4 });
   }
 }
 

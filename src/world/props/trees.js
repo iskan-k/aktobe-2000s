@@ -17,6 +17,12 @@ import { coreBlob, leafCards, foliageCore, foliageCard } from './foliage.js';
  *   young   a sapling on a stake, the avenue's newest planting
  *   ball    an elm clipped into a ball, on squares and the avenue
  *   spruce  blue spruce, for the akimat, the station and the park
+ *   apple, apricot, cherry
+ *           the whitewashed fruit trees of every private-sector garden;
+ *           the cherries are red in June
+ *   lilac   a tall many-stemmed lilac bush (сирень), over by now
+ *   acacia  a feathery yellow acacia (карагана) bush
+ *   karagach  another name for the elm
  *
  * A canopy is a few low-poly core blobs wrapped in alpha-tested leaf
  * cards (see foliage.js): the core gives the mass and the shadow, the
@@ -31,7 +37,8 @@ import { coreBlob, leafCards, foliageCore, foliageCard } from './foliage.js';
 
 const _c = new THREE.Color();
 
-function shade(hexA, amount, rng) {
+/** A hue, saturation and lightness jitter of a base colour. */
+export function shade(hexA, amount, rng) {
   _c.set(hexA);
   const hsl = {};
   _c.getHSL(hsl);
@@ -70,7 +77,7 @@ function branches(batch, rng, x, z, y0, y1, reach, color, count, rise = [0.5, 0.
  * @param {object} leaf  { kind, size, density, up, droop, shell, core }
  *   density is cards per square metre of clump silhouette
  */
-function canopy(batch, rng, clumps, colors, leaf) {
+export function canopy(batch, rng, clumps, colors, leaf) {
   const core = foliageCore();
   const card = foliageCard(leaf.kind);
   const coreScale = leaf.core ?? 0.8;
@@ -90,7 +97,7 @@ function canopy(batch, rng, clumps, colors, leaf) {
 /**
  * Add a tree.
  * @param {import('../../core/batch.js').Batch} batch
- * @param {'poplar'|'black'|'elm'|'maple'|'birch'|'shrub'|'young'|'ball'|'spruce'} kind
+ * @param {'poplar'|'black'|'elm'|'karagach'|'maple'|'birch'|'shrub'|'young'|'ball'|'spruce'|'apple'|'apricot'|'cherry'|'lilac'|'acacia'} kind
  * @param {number} x
  * @param {number} z
  * @param {number} seed
@@ -141,6 +148,10 @@ export function addTree(batch, kind, x, z, seed, o = {}) {
     canopy(batch, rng, clumps, colors, { kind: 'poplar', size: 1.9 * s, density: 1.2 });
     return { r, h };
   }
+
+  if (kind === 'apple' || kind === 'apricot' || kind === 'cherry') return fruitTree(batch, rng, kind, x, z, s, y0, ww);
+  if (kind === 'lilac' || kind === 'acacia') return bush(batch, rng, kind, x, z, s, y0);
+  if (kind === 'karagach') kind = 'elm';
 
   if (kind === 'elm' || kind === 'maple') {
     const isElm = kind === 'elm';
@@ -270,6 +281,73 @@ export function addTree(batch, kind, x, z, seed, o = {}) {
   }
   canopy(batch, rng, clumps, colors, { kind: 'broad', size: 0.9 * s, density: 1.2 });
   return { r: 0.6 * s, h: rad * 1.4 };
+}
+
+const FRUIT = {
+  // leaf tint, crown height, crown spread, leaf card kind and size
+  apple: { tint: 0x5f8a3e, h: 5.2, spread: 1.7, leaf: 'broad', size: 1.1 },
+  apricot: { tint: 0x74984a, h: 6.0, spread: 1.9, leaf: 'broad', size: 1.2 },
+  cherry: { tint: 0x4d7a34, h: 4.4, spread: 1.3, leaf: 'elm', size: 1.0 },
+};
+
+/**
+ * A garden fruit tree: a short whitewashed trunk that forks low into a
+ * few spreading limbs, and a wide, rather flat crown.
+ */
+function fruitTree(batch, rng, kind, x, z, s, y0, ww) {
+  const f = FRUIT[kind];
+  const h = f.h * s;
+  const r = 0.12 * s;
+  trunk(batch, x, z, h * 0.34, r, r * 0.7, PAL.bark, { whitewash: ww, y0, lean: rng.range(0, 0.1), leanDir: rng.range(0, 6.3) });
+  branches(batch, rng, x, z, y0 + h * 0.22, y0 + h * 0.34, 1.5 * s, PAL.bark, 4, [0.35, 0.7]);
+  const colors = { base: shade(f.tint, 0, rng), light: shade(PAL.leafLight, -0.02, rng), dark: PAL.leafDark };
+  const clumps = [];
+  for (let i = 0; i < 4; i++) {
+    const a = (i / 4) * Math.PI * 2 + rng.range(-0.4, 0.4);
+    const d = (i === 0 ? 0.2 : rng.range(0.8, f.spread)) * s;
+    const rad = rng.range(1.0, 1.35) * s;
+    clumps.push({ x: x + Math.cos(a) * d, y: y0 + h * rng.range(0.6, 0.78), z: z + Math.sin(a) * d, rx: rad, ry: rad * 0.78, rz: rad });
+  }
+  canopy(batch, rng, clumps, colors, { kind: f.leaf, size: f.size * s, density: 1.2, droop: 0.2, detail: 0 });
+  if (kind === 'cherry') {
+    // ripe cherries hanging on the outside of the crown
+    for (let i = 0; i < 16; i++) {
+      const k = clumps[i % clumps.length];
+      const a = rng.range(0, Math.PI * 2), dy = rng.range(-0.6, 0.3);
+      const rr = Math.sqrt(1 - dy * dy);
+      const g = new THREE.OctahedronGeometry(0.08 * s, 0);
+      g.translate(k.x + Math.cos(a) * rr * k.rx * 0.98, k.y + dy * k.ry * 0.98, k.z + Math.sin(a) * rr * k.rz * 0.98);
+      batch.add(g, { color: rng.pick([0x9e1a24, 0xb8242c, 0x7e1420]), cast: false });
+    }
+  }
+  return { r, h };
+}
+
+/**
+ * A bush of several stems from one root: lilac, tall and upright with
+ * dark heart-shaped leaves, or yellow acacia, lower, arching and airy.
+ */
+function bush(batch, rng, kind, x, z, s, y0) {
+  const lilac = kind === 'lilac';
+  const h = (lilac ? 3.2 : 2.1) * s;
+  const stems = lilac ? 5 : 6;
+  const clumps = [];
+  for (let i = 0; i < stems; i++) {
+    const a = rng.range(0, Math.PI * 2);
+    const out = rng.range(0.3, lilac ? 0.8 : 1.1) * s;
+    const top = h * rng.range(0.7, 0.95);
+    batch.tube(x + Math.cos(a) * 0.12, y0, z + Math.sin(a) * 0.12, x + Math.cos(a) * out, y0 + top * 0.7, z + Math.sin(a) * out,
+      0.035 * s, PAL.bark, { seg: 4, cast: false });
+    const rad = (lilac ? rng.range(0.7, 0.95) : rng.range(0.6, 0.85)) * s;
+    clumps.push({ x: x + Math.cos(a) * out, y: y0 + top - rad * 0.4, z: z + Math.sin(a) * out, rx: rad, ry: rad * (lilac ? 1.15 : 0.8), rz: rad });
+  }
+  const colors = lilac
+    ? { base: shade(0x4e7a36, 0, rng), light: shade(0x86a458, 0, rng), dark: 0x3e6030 }
+    : { base: shade(0x7c9c48, 0, rng), light: shade(0xa8bc68, 0, rng), dark: 0x587a38 };
+  canopy(batch, rng, clumps, colors, lilac
+    ? { kind: 'broad', size: 0.95 * s, density: 1.3, detail: 0 }
+    : { kind: 'elm', size: 0.8 * s, density: 1.2, droop: 0.5, detail: 0 });
+  return { r: 0.5 * s, h };
 }
 
 /** A straight clipped hedge of shrubs from (x0, z0) to (x1, z1). */
