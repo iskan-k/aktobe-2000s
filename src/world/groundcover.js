@@ -455,7 +455,7 @@ function buildDecals(scene, ground, colliders, paths, seed, stats) {
     const dir = [pts[pts.length - 1][0] - pts[0][0], pts[pts.length - 1][1] - pts[0][1]];
     const leftIsOut = (-dir[1]) * lx + dir[0] * lz > 0;
     const ordered = leftIsOut ? pts : pts.slice().reverse();
-    addStrip(batch, ordered, run.y + Y, 1.1, DECAL.dust, 6, -0.55);
+    addStrip(batch, ordered, run.y + Y, 0.8, DECAL.dust, 6, -0.4);
     for (let i = 4; i < run.pts.length - 2; i += r.int(26, 44)) {
       const [x, z] = run.pts[i];
       if (insideCollider(colliders, x, z, 0.3)) continue;

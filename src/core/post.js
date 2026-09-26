@@ -332,16 +332,15 @@ export class Pipeline {
       r.setRenderTarget(this.rtGlowA);
       this.bright.quad.render(r);
       const b = this.blur.mat.uniforms;
-      for (let i = 0; i < 2; i++) {
-        b.tDiffuse.value = this.rtGlowA.texture;
-        b.uDir.value.set(this.glowTexel.x * (1 + i), 0);
-        r.setRenderTarget(this.rtGlowB);
-        this.blur.quad.render(r);
-        b.tDiffuse.value = this.rtGlowB.texture;
-        b.uDir.value.set(0, this.glowTexel.y * (1 + i));
-        r.setRenderTarget(this.rtGlowA);
-        this.blur.quad.render(r);
-      }
+      // one wide separable blur, horizontal then vertical
+      b.tDiffuse.value = this.rtGlowA.texture;
+      b.uDir.value.set(this.glowTexel.x * 1.6, 0);
+      r.setRenderTarget(this.rtGlowB);
+      this.blur.quad.render(r);
+      b.tDiffuse.value = this.rtGlowB.texture;
+      b.uDir.value.set(0, this.glowTexel.y * 1.6);
+      r.setRenderTarget(this.rtGlowA);
+      this.blur.quad.render(r);
       g.tBloom.value = this.rtGlowA.texture;
       g.uBloom.value = this.bloomStrength;
     } else {

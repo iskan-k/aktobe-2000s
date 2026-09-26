@@ -80,9 +80,9 @@ function canopy(batch, rng, clumps, colors, leaf) {
     // enough cards to cover the blob's surface: density is the share of
     // the surface one card's leaf cluster covers, summed over all cards
     const surface = 4 * Math.PI * (k.rx * k.ry + k.ry * k.rz + k.rx * k.rz) / 3;
-    const count = Math.max(4, Math.min(56, Math.round((surface * leaf.density) / (leaf.size * leaf.size * 0.45))));
+    const count = Math.max(4, Math.min(48, Math.round((surface * leaf.density * 0.8) / (leaf.size * leaf.size * 0.45 * 1.2))));
     batch.add(leafCards(rng, k.x, k.y, k.z, k.rx, k.ry, k.rz, {
-      ...colors, count, size: leaf.size, up: leaf.up ?? 0, droop: leaf.droop ?? 0, shell: leaf.shell,
+      ...colors, count, size: leaf.size * 1.1, up: leaf.up ?? 0, droop: leaf.droop ?? 0, shell: leaf.shell,
     }), { color: null, mat: card, cast: false });
   }
 }
