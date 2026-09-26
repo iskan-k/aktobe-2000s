@@ -56,23 +56,31 @@ const ITEMS = {
     sms: ["K'Cell", "Ваш баланс пополнен на 500 тг. Спасибо, что выбрали K'Cell!"],
   },
   seeds: {
-    label: 'A paper cone of семечки', price: 20, what: 'sunflower seeds', sound: 'paper',
+    label: 'A paper cone of семечки', price: 20, what: 'sunflower seeds', sound: 'paper', hold: 'seeds',
     toast: 'Salted семечки in a twist of newspaper. Now you know where the husks come from.',
   },
   pepsi: {
-    label: 'A cold can of Pepsi', price: 90, what: 'a Pepsi', sound: 'canOpen',
+    label: 'A cold can of Pepsi', price: 90, what: 'a Pepsi', sound: 'canOpen', hold: 'pepsi',
     toast: 'Pepsi, cold from the fridge at the back. The can says «Пепси».',
   },
   tarkhun: {
-    label: 'A bottle of «Тархун»', price: 60, what: 'lemonade', sound: 'canOpen',
+    label: 'A bottle of «Тархун»', price: 60, what: 'lemonade', sound: 'canOpen', hold: 'tarkhun',
     toast: 'Green Тархун lemonade. It tastes of tarragon and 1985.',
   },
+  buratino: {
+    label: 'A bottle of «Буратино»', price: 60, what: 'lemonade', sound: 'canOpen', hold: 'buratino',
+    toast: 'Буратино, the golden key on the label. Every childhood birthday in one bottle.',
+  },
+  duchess: {
+    label: 'A bottle of «Дюшес»', price: 60, what: 'lemonade', sound: 'canOpen', hold: 'duchess',
+    toast: 'Дюшес: pear lemonade, sweet enough to make your teeth ache.',
+  },
   turbo: {
-    label: '«Turbo» chewing gum', price: 15, what: 'chewing gum', sound: 'paper',
+    label: '«Turbo» chewing gum', price: 15, what: 'chewing gum', sound: 'paper', hold: 'turbo',
     toast: 'Turbo gum. The insert is a Lamborghini Countach. Keep it.',
   },
   bread: {
-    label: 'A loaf of white bread', price: 40, what: 'bread', sound: 'paper',
+    label: 'A loaf of white bread', price: 40, what: 'bread', sound: 'paper', hold: 'loaf',
     toast: 'A warm brick of white bread. The crust is gone before you get home.',
   },
 };
@@ -106,11 +114,11 @@ const KIOSKS = [
   { road: 'ave', side: 1, at: 49.3, kind: 'postbox' },
   { road: 'ave', side: 1, at: -86.8, kind: 'larek', o: { sign: ['24 сағат', '24 часа'], item: ITEMS.kcell, variant: 4, poster: 'kcell' } },
   { road: 'ave', side: 1, at: -106.5, kind: 'booth', o: { kind: 'press' } },
-  { road: 'ave', side: 1, at: 150, kind: 'larek', o: { item: ITEMS.tarkhun, variant: 6 }, sparrows: true },
+  { road: 'ave', side: 1, at: 150, kind: 'larek', o: { sign: ['Сусындар', 'Напитки'], item: ITEMS.buratino, variant: 6 }, sparrows: true },
   { road: 'ave', side: 1, at: 153.2, kind: 'larek', o: { sign: ['Сыра', 'Пиво'], variant: 7, poster: 'beeline' } },
   { road: 'ave', side: 1, at: 188, kind: 'pavilion', o: { w: 5.6, d: 2.4, sign: ['Дүкен', 'Магазин «Айгүл»'], item: ITEMS.bread } },
   // Вокзальная, the station side
-  { road: 'vokzal', side: 0, at: -56, kind: 'larek', o: { w: 2.3, d: 1.6, item: ITEMS.pepsi, variant: 1 }, sparrows: true, bike: true },
+  { road: 'vokzal', side: 0, at: -56, kind: 'larek', o: { w: 2.3, d: 1.6, item: ITEMS.duchess, variant: 1 }, sparrows: true, bike: true },
   { road: 'vokzal', side: 0, at: -59.2, kind: 'larek', o: { w: 2.3, d: 1.6, sign: ['Самса', 'Беляши'], variant: 2, poster: 'kcell' } },
   { road: 'vokzal', side: 0, at: -38, kind: 'icecream' },
   { road: 'vokzal', side: 0, at: -41.2, kind: 'payphone' },

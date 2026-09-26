@@ -416,7 +416,9 @@ function cornerShop(ctx, p) {
     x: d[0], y: 1.2, z: d[1], w: 1.4, h: 2.2, d: 1, ry: p.ry,
     label: 'Buy a loaf of bread · нан, 35 ₸',
     action: (game) => {
-      if (game.pay(35, 'bread')) game.hud.flash('Still warm. The shop lady says the bread truck came at six.');
+      if (!game.pay(35, 'bread')) return;
+      game.hud.flash('Still warm. The shop lady says the bread truck came at six.');
+      game.hands?.give('loaf');
     },
   });
 }

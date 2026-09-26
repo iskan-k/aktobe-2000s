@@ -7,6 +7,8 @@ import { Player } from './core/player.js';
 import { createHud } from './core/hud.js';
 import { createAudio } from './core/audio.js';
 import { buildWorld } from './world/index.js';
+import { BINS } from './world/props/street.js';
+import { createHands } from './core/hands.js';
 import { SPAWN, onCarriageway } from './world/plan.js';
 import { SYSTEMS } from './systems.js';
 
@@ -114,6 +116,11 @@ player.onStep = (speed) => {
   const hard = p.y > 0.05 || onCarriageway(p.x, p.z);
   audio.play('step', { volume: Math.min(1, speed / 5) * 0.5, soft: !hard });
 };
+player.onLand = (impact) => audio.play('land', { volume: Math.min(1, impact / 5) });
+
+/* What is in your hand: bought food and drink, eaten with a click. */
+const hands = createHands(game, { bins: BINS });
+game.hands = hands;
 
 /* Systems: traffic, transit, the train, the player's car. Each is
  * { name, create(game) -> { update(dt) } } and may be absent while the
@@ -130,7 +137,7 @@ for (const S of SYSTEMS) {
 }
 
 hud.setWallet(game.wallet);
-hud.setHint('<b>WASD</b> walk · <b>Shift</b> run · <b>E</b> use · <b>V</b> call your car · <b>T</b> map · <b>M</b> sound · <b>Esc</b> pause');
+hud.setHint('<b>WASD</b> walk · <b>Shift</b> run · <b>Space</b> jump · <b>E</b> use · <b>V</b> call your car · <b>T</b> map · <b>M</b> sound · <b>Esc</b> pause');
 
 hud.onStart = () => {
   audio.start();
@@ -139,6 +146,8 @@ hud.onStart = () => {
 hud.onVolume = (v) => audio.setVolume(v);
 let welcomed = false;
 input.onLockChange = (locked) => {
+  // pausing: the postcard shows the view you just left
+  if (!locked && welcomed) hud.setPausePhoto(snapshot());
   hud.setLocked(locked);
   if (locked && !welcomed) {
     welcomed = true;
@@ -160,6 +169,14 @@ input.on('KeyE', () => {
   }
   if (!game.controller && player.hovered) player.hovered.action?.(game);
 });
+input.on('Space', () => {
+  if (!game.controller) player.jump();
+});
+// take a bite or a sip: left click while the mouse is captured, or F
+document.addEventListener('mousedown', (e) => {
+  if (e.button === 0 && input.locked) hands.use();
+});
+input.on('KeyF', () => { if (!game.car?.active) hands.use(); });
 input.on('KeyR', () => {
   if (game.controller) game.setController(null);
   player.reset();
@@ -210,6 +227,43 @@ function placeLights() {
   bounce.position.copy(_center).addScaledVector(BOUNCE_DIR, -100);
 }
 
+/* ------------------------------- the postcard ------------------------------- */
+/* Views of the town rendered for the title card, once it has had a few
+ * frames to settle (textures up, shadows drawn, traffic moving). */
+const HERO_VIEWS = [
+  { x: 10, y: 3.2, z: -2.5, yaw: -1.62, pitch: -0.01, caption: 'Әбілқайыр хан даңғылы · пр. Абулхаир хана' },
+  { x: -86.5, y: 4.5, z: 4, yaw: Math.PI, pitch: 0, caption: 'Облыс әкімдігі · Облакимат' },
+  { x: 52, y: 2.0, z: 9, yaw: 0.1, pitch: 0.07, caption: 'Орталық базар · Центральный рынок' },
+  { x: -75, y: 2.0, z: -112, yaw: -0.35, pitch: 0.12, caption: 'Ақтөбе-1 вокзалы · Вокзал Актобе-1' },
+  { x: 30, y: 1.7, z: 46, yaw: 0.4, pitch: 0.06, caption: 'Шағын аудан · Микрорайон' },
+];
+const HERO_AFTER_FRAMES = 20;
+const SNAP_QUALITY = 0.86;
+
+/** Render the current camera and hand back a JPEG data URL. */
+function snapshot() {
+  sky.follow(camera);
+  placeLights();
+  pipeline.render(game.time);
+  return canvas.toDataURL('image/jpeg', SNAP_QUALITY);
+}
+
+function captureHeroes() {
+  const pos = camera.position.clone(), rot = camera.rotation.clone();
+  const handsShown = hands.root.visible;
+  hands.root.visible = false;
+  const shots = HERO_VIEWS.map((v) => {
+    camera.position.set(v.x, v.y, v.z);
+    camera.rotation.set(v.pitch, v.yaw, 0, 'YXZ');
+    camera.updateMatrixWorld();
+    return { src: snapshot(), caption: v.caption };
+  });
+  camera.position.copy(pos);
+  camera.rotation.copy(rot);
+  hands.root.visible = handsShown;
+  hud.setPostcards(shots);
+}
+
 /* --------------------------------- loop --------------------------------- */
 const timer = new THREE.Timer();
 let freeCam = null;   // dev: a fixed camera for screenshots
@@ -251,15 +305,18 @@ function step(dt) {
   }
   world.update(dt);
   for (const s of systems) s.update?.(dt);
+  hands.update(dt);
   audio.update(dt, camera);
 }
 
+let devHold = false;   // dev: stop the clock so a screenshot catches one moment
+let frameCount = 0;
 function frame() {
   timer.update();
   const rawDt = timer.getDelta();
   const dt = Math.min(rawDt, 1 / 20);
   if (!document.hidden) autoQuality(rawDt);
-  step(dt);
+  if (!devHold) step(dt);
   if (freeCam) {
     camera.position.set(freeCam.x, freeCam.y, freeCam.z);
     camera.rotation.set(freeCam.pitch, freeCam.yaw, 0, 'YXZ');
@@ -275,6 +332,7 @@ function frame() {
   hud.setCoords(game.controller?.pos || player.pos, game.controller?.yaw ?? player.yaw, player.pitch, dt);
 
   pipeline.render(game.time);
+  if (++frameCount === HERO_AFTER_FRAMES && !DEV) captureHeroes();
 
   if (showStats) {
     frames++;
@@ -307,6 +365,14 @@ window.__city = {
   advance(secs, dt = 1 / 30) {
     for (let t = 0; t < secs; t += dt) step(dt);
   },
+  /** Dev: render the postcard views and show the card ('start' or 'paused'). */
+  card(mode = 'start') {
+    captureHeroes();
+    if (mode === 'paused') hud.setPausePhoto(snapshot());
+    hud.showOverlay(mode);
+  },
+  /** Freeze or release the live clock (advance() still steps). */
+  hold(on = true) { devHold = on; },
   renderNow() {
     if (freeCam) {
       camera.position.set(freeCam.x, freeCam.y, freeCam.z);

@@ -30,11 +30,13 @@ npm run dev        # then open http://127.0.0.1:5188
 |---|---|
 | WASD or arrows | walk, or drive |
 | Shift | run |
+| Space | jump (about half a metre: onto a bench, over a low wall) |
 | Mouse | look (click the page to capture the mouse) |
-| E | use, buy, board, get in or out, request a stop |
+| E | use, buy, board, get in or out, request a stop, drop an empty in a bin |
+| Click or F | take a bite or a sip of what you are holding |
 | V | call your car (a VAZ-2107): it appears a few metres in front of you |
-| F | switch the car camera: chase or driver's seat |
-| Space | horn, in the car |
+| F | in the car: switch the camera, chase or driver's seat |
+| Space | in the car: horn |
 | T | map |
 | M | sound on or off |
 | R | back to the start |
@@ -70,7 +72,10 @@ npm run dev        # then open http://127.0.0.1:5188
   - A private-sector street of houses behind fences.
   - The station quarter.
 - **Street life.** Kiosks and a bazaar where you can buy things with your
-  1,500 tenge. There are also payphones, a post box, pigeons, dogs, a cat,
+  1,500 tenge. Food and drink go into your hand: пломбир, эскимо, a brick
+  loaf, lepyoshka, Тархун, Буратино and Дюшес lemonade, kvass in a гранёный
+  стакан, Pepsi, семечки, kurt and strawberries. Click to eat or drink, and
+  drop the empty in any bin. There are also payphones, a post box, pigeons, dogs, a cat,
   swings and a carousel, carpets to beat, a water pump, and 32 podyezd doors.
 
 ## Development

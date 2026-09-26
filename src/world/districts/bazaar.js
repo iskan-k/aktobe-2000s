@@ -597,14 +597,14 @@ function vendors(ctx, rng) {
   batch.cyl(0.06, 0.1, 0xe8e6e0, sx, 0.62, sz, { seg: 8, rTop: 0.075 });
   ctx.colliders.box(sx - 0.4, sz - 0.4, sx + 1.1, sz + 1.1, { top: 0.7, tag: 'sacks' });
   buy(ctx, sx + 0.35, 0.6, sz, 'Buy a glass of sunflower seeds · шемішке, 20 ₸', 20, 'seeds',
-    'A glass of warm roasted seeds poured into your pocket. The husks go on the pavement, like everyone else\'s.');
+    'A glass of warm roasted seeds poured into a newspaper cone. The husks go on the pavement, like everyone else\'s.', 'seeds');
 
   // kurt on a tray on a folding table
   const kx = GATE_X - 4.2, kz = B.z1 - 12;
   batch.box(1.1, 0.75, 0.6, 0xa8865a, kx, 0, kz);
   for (let i = 0; i < 3; i++) crate(batch, i === 1 ? 'kurt' : 'kurt', kx - 0.35 + i * 0.35, 0.75, kz, 0, rng, { w: 0.32, d: 0.4, h: 0.05, plastic: false });
   ctx.colliders.box(kx - 0.6, kz - 0.35, kx + 0.6, kz + 0.35, { top: 0.8, tag: 'table' });
-  buy(ctx, kx, 0.9, kz, 'Buy kurt · құрт, 50 ₸', 50, 'kurt', 'Salty and rock hard. It will last you the whole summer.');
+  buy(ctx, kx, 0.9, kz, 'Buy kurt · құрт, 50 ₸', 50, 'kurt', 'Salty and rock hard. It will last you the whole summer.', 'kurt');
 
   // strawberries at the first produce stall on the main aisle
   // the produce stall on the main aisle nearest the gate
@@ -612,16 +612,17 @@ function vendors(ctx, rng) {
     .filter((s) => s.kind === 'produce' && s.x > 42 && s.x < GATE_X)
     .reduce((a, s) => (!a || s.z > a.z ? s : a), null);
   if (st) {
-    buy(ctx, st.counter[0], 1.0, st.counter[1], 'Buy a kilo of strawberries · 250 ₸', 250, 'strawberries', 'A kilo of garden strawberries in a paper cone. The seller throws in one more.');
+    buy(ctx, st.counter[0], 1.0, st.counter[1], 'Buy a kilo of strawberries · 250 ₸', 250, 'strawberries', 'A kilo of garden strawberries in a paper cone. The seller throws in one more.', 'strawberries');
     buy(ctx, st.counter[0], 1.0, st.counter[1] + 1.7, 'Taste a cherry (the seller insists)', 0, 'cherry', '«Кушай, кушай, не стесняйся!» Sweet, a little sour.');
   }
 
   // lepyoshka from the tandyr by the hall
   const t = tandyr(ctx, GATE_X + 7, B.z0 + 24.5, 0);
-  buy(ctx, t.table[0], 1.0, t.table[1], 'Buy a lepyoshka · нан, 40 ₸', 40, 'bread', 'Hot from the tandyr, with sesame on top. You tear off a piece straight away.');
+  buy(ctx, t.table[0], 1.0, t.table[1], 'Buy a lepyoshka · нан, 40 ₸', 40, 'bread', 'Hot from the tandyr, with sesame on top. You tear off a piece straight away.', 'lepyoshka');
 }
 
-function buy(ctx, x, y, z, label, price, what, toast) {
+/** A seller's counter. `hold` names the item that ends up in your hand. */
+function buy(ctx, x, y, z, label, price, what, toast, hold = null) {
   ctx.interact({
     x, y, z, w: 1.0, h: 1.0, d: 1.0,
     label,
@@ -629,6 +630,7 @@ function buy(ctx, x, y, z, label, price, what, toast) {
       if (price && !game.pay(price, what)) return;
       game.audio.play('rustle', { pos: { x, y, z } });
       game.hud.flash(toast, 3200);
+      if (hold) game.hands?.give(hold);
     },
   });
 }

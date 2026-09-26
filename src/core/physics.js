@@ -178,6 +178,21 @@ export function pushCircle(p, r, c, feetY, stepH = 0.4, headH = 1.8) {
   return true;
 }
 
+/** Is (x, z) inside the collider's footprint, grown by `margin`? */
+export function colliderContains(c, x, z, margin = 0) {
+  if (c.kind === 'box') {
+    return x >= c.x0 - margin && x <= c.x1 + margin && z >= c.z0 - margin && z <= c.z1 + margin;
+  }
+  if (c.kind === 'circle') {
+    const dx = x - c.cx, dz = z - c.cz, r = c.r + margin;
+    return dx * dx + dz * dz <= r * r;
+  }
+  const lx0 = x - c.cx, lz0 = z - c.cz;
+  const lx = lx0 * c.cos - lz0 * c.sin;
+  const lz = lx0 * c.sin + lz0 * c.cos;
+  return Math.abs(lx) <= c.hx + margin && Math.abs(lz) <= c.hz + margin;
+}
+
 /**
  * Corners of a rotated rectangle, in world space. Used for car-vs-world
  * contacts: each corner and each edge midpoint is pushed like a small

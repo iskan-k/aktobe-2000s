@@ -11,7 +11,7 @@ import { defineVoice } from './audio.js';
  * ------------------------------------------------------------------ */
 
 let NOISE = null;
-function noise(ac) {
+export function noise(ac) {
   if (!NOISE || NOISE.sampleRate !== ac.sampleRate) {
     NOISE = ac.createBuffer(1, ac.sampleRate * 2, ac.sampleRate);
     const d = NOISE.getChannelData(0);
@@ -22,13 +22,13 @@ function noise(ac) {
   return s;
 }
 
-function env(g, t0, a, peak, d) {
+export function env(g, t0, a, peak, d) {
   g.gain.setValueAtTime(0.0001, t0);
   g.gain.exponentialRampToValueAtTime(Math.max(peak, 0.0002), t0 + a);
   g.gain.exponentialRampToValueAtTime(0.0001, t0 + a + d);
 }
 
-function burst(ac, out, t, { f = 2000, q = 1, type = 'bandpass', peak = 0.3, a = 0.004, d = 0.08 } = {}) {
+export function burst(ac, out, t, { f = 2000, q = 1, type = 'bandpass', peak = 0.3, a = 0.004, d = 0.08 } = {}) {
   const s = noise(ac);
   const fl = ac.createBiquadFilter();
   fl.type = type;
@@ -41,7 +41,7 @@ function burst(ac, out, t, { f = 2000, q = 1, type = 'bandpass', peak = 0.3, a =
   s.stop(t + a + d + 0.05);
 }
 
-function tone(ac, out, t, f, dur, { type = 'sine', peak = 0.1, a = 0.01 } = {}) {
+export function tone(ac, out, t, f, dur, { type = 'sine', peak = 0.1, a = 0.01 } = {}) {
   const o = ac.createOscillator();
   o.type = type;
   o.frequency.value = f;
