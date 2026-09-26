@@ -142,11 +142,12 @@ function steamEngine(ctx) {
   for (let i = 0; i < 34; i++) b.box(0.25, 0.1, 2.6, 0x6b5238, x - ER.len / 2 + 0.3 + i * 0.62, 0.7, z);
   for (const s of [-1, 1]) b.box(ER.len + 1.6, 0.14, 0.07, 0x5d4c40, x, 0.8, z + s * 0.76);
   const { x0, x1 } = buildEr(b, x, z, 0.94);
-  // the plaque on its stand, beside the steps
-  b.box(0.2, 1.1, 0.2, 0x4a4d50, x - 3, 0, z + 2.8);
-  b.box(1.2, 0.7, 0.08, 0x8a7a4a, x - 3, 1.0, z + 2.84, { rx: -0.3 });
+  // the plaque on its stand, off the front corner so the motion stays in view
+  const px = x - ER.len / 2 - 1.2;
+  b.box(0.2, 1.1, 0.2, 0x4a4d50, px, 0, z + 2.8);
+  b.box(1.2, 0.7, 0.08, 0x8a7a4a, px, 1.0, z + 2.84, { rx: -0.3 });
   ctx.colliders.box(x0, z - 2, x1, z + 2, { top: 5.2, tag: 'monument' });
-  return { plaque: { x: x - 3, z: z + 2.9 } };
+  return { plaque: { x: px, z: z + 2.9 } };
 }
 
 /* ---------------- water tower, warehouses, pipes ---------------- */

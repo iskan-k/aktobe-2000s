@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { Batch } from '../core/batch.js';
-import { bogie, coupler, ladder, handrail, zCyl, xCyl, DARK, STEEL } from './stockParts.js';
+import { bogie, coupler, ladder, handrail, zCyl, xCyl, stockBatch, DARK, STEEL } from './stockParts.js';
 
 /* ------------------------------------------------------------------ *
  * Freight wagons, 1520 mm Soviet types, each on two 18-100 bogies with
@@ -29,7 +28,7 @@ function underframe(b, L, W, y, color = DARK) {
 }
 
 export function gondola() {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 12.7, W = 3.13, y0 = 1.28, y1 = 3.36;
   const c = 0x7a3a2a, rib = 0x6a3122;
   underframe(b, L, W, y0);
@@ -63,7 +62,7 @@ export function gondola() {
 }
 
 export function tank() {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 11.0, y0 = 1.2, R = 1.5, yc = 2.75;
   const c = 0x2b2b2d;
   underframe(b, L + 0.6, 2.8, y0);
@@ -101,7 +100,7 @@ export function tank() {
 }
 
 export function hopper() {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 13.4, W = 3.1, y0 = 1.3, c = 0x9b958a, rib = 0x847e73;
   underframe(b, L, W - 0.3, y0);
   bogie(b, -4.6, 'freight');
@@ -131,7 +130,7 @@ export function hopper() {
 }
 
 export function boxcar() {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 13.8, W = 2.95, y0 = 1.3, y1 = 4.2, c = 0x6e4a34, rib = 0x5c3c2b;
   underframe(b, L, W, y0);
   bogie(b, -4.6, 'freight');

@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import { Batch } from '../core/batch.js';
-import { bogie, coupler, ladder, handrail, zCyl, xCyl, DARK, STEEL } from './stockParts.js';
+import { bogie, coupler, ladder, handrail, zCyl, xCyl, stockBatch, coarse, DARK, STEEL } from './stockParts.js';
 import { gondola, tank, hopper, boxcar } from './freight.js';
 import { sideDecal, decalMaterial, WIDE } from './decals.js';
 
@@ -104,7 +103,7 @@ function locoCab(b, { W, y0, y1, zF, body, blue }) {
 }
 
 function locoSection(livery) {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 16.2, W = 3.36, y0 = 1.62, y1 = 4.75;
   const blue = livery === 'blue';
   const body = blue ? 0x56a6da : 0x2f6b3a;
@@ -228,7 +227,7 @@ function coachEnds(b, L, W, y0, green) {
 }
 
 function coach(livery) {
-  const b = new Batch({ cell: Infinity });
+  const b = stockBatch();
   const L = 23.6, W = 3.1, y0 = 1.25, y1 = 3.78;
   const green = livery === 'green';
   const body = green ? 0x3d5e46 : 0x6f8aa0;
@@ -297,18 +296,21 @@ export const BODY = {
 const cache = new Map();
 
 /**
- * Build (once) and return a type's geometry by material key.
+ * Build (once) and return a type's geometry by material key. `far` gives
+ * the coarse version drawn beyond LOD range.
  * @param {string} type
+ * @param {boolean} [far=false]
  * @returns {{ length: number, parts: Array<{ geometry: THREE.BufferGeometry, material: THREE.Material, decal: boolean }> }}
  */
-export function bakeType(type) {
-  if (cache.has(type)) return cache.get(type);
-  const { b, length } = BUILDERS[type]();
+export function bakeType(type, far = false) {
+  const key = far ? `${type}|far` : type;
+  if (cache.has(key)) return cache.get(key);
+  const { b, length } = far ? coarse(BUILDERS[type]) : BUILDERS[type]();
   const g = new THREE.Group();
   const meshes = b.flush(g);
   const decal = decalMaterial();
   const parts = meshes.map((m) => ({ geometry: m.geometry, material: m.material, decal: m.material === decal }));
   const out = { length, parts };
-  cache.set(type, out);
+  cache.set(key, out);
   return out;
 }

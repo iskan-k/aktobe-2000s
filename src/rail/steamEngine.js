@@ -62,7 +62,7 @@ function spoke(b, cx, cy, z, a, r0, r1, w, color) {
 
 /** White painted tyre face: a flat ring on the outer face of a wheel. */
 function rimRing(b, cx, cy, z, s, r0, r1) {
-  const g = new THREE.RingGeometry(r0, r1, 28, 1);
+  const g = new THREE.RingGeometry(r0, r1, 20, 1);
   if (s < 0) g.rotateY(Math.PI);
   g.translate(cx, cy, z);
   b.add(g, { color: WHITE, cast: false });
@@ -74,16 +74,16 @@ function rimRing(b, cx, cy, z, s, r0, r1) {
  */
 function driver(b, cx, cy, z, s, crank) {
   const zi = z + s * (WHEEL_Z - 0.07), zo = z + s * (WHEEL_Z + 0.07);
-  zc(b, R_DRV, Math.min(zi, zo), Math.max(zi, zo), cx, cy, IRON, 20);
-  zc(b, R_DRV + 0.035, s > 0 ? zi - 0.04 : zi, s > 0 ? zi : zi + 0.04, cx, cy, IRON, 20);   // flange
+  zc(b, R_DRV, Math.min(zi, zo), Math.max(zi, zo), cx, cy, IRON, 18);
+  zc(b, R_DRV + 0.035, s > 0 ? zi - 0.04 : zi, s > 0 ? zi : zi + 0.04, cx, cy, IRON, 18);   // flange
   const face = zo + s * 0.002;
-  zc(b, 0.56, Math.min(face, face + s * 0.004), Math.max(face, face + s * 0.004), cx, cy, SOOT, 20);
+  zc(b, 0.56, Math.min(face, face + s * 0.004), Math.max(face, face + s * 0.004), cx, cy, SOOT, 18);
   rimRing(b, cx, cy, zo + s * 0.008, s, 0.56, R_DRV);
   const zs = zo + s * 0.03;
-  for (let i = 0; i < 14; i++) spoke(b, cx, cy, zs, (i / 14) * Math.PI * 2 + 0.1, 0.15, 0.57, 0.05, RED);
+  for (let i = 0; i < 12; i++) spoke(b, cx, cy, zs, (i / 12) * Math.PI * 2 + 0.1, 0.15, 0.57, 0.055, RED);
   // counterweight: a block across the spokes opposite the crank pin
   const cw = crank + Math.PI;
-  for (const d of [-0.32, -0.16, 0, 0.16, 0.32]) spoke(b, cx, cy, zs + s * 0.01, cw + d, 0.3, 0.55, 0.13, RED);
+  for (const d of [-0.26, 0, 0.26]) spoke(b, cx, cy, zs + s * 0.01, cw + d, 0.3, 0.55, 0.16, RED);
   zc(b, 0.17, Math.min(zo, zo + s * 0.1), Math.max(zo, zo + s * 0.1), cx, cy, RED, 12);
   const px = cx + Math.cos(crank) * CRANK, py = cy + Math.sin(crank) * CRANK;
   const zp = z + s * (MAINROD_Z + 0.06);

@@ -1,4 +1,6 @@
 
+import { Batch } from '../core/batch.js';
+
 /* ------------------------------------------------------------------ *
  * Running gear and fittings shared by the rolling stock in rolling.js.
  *
@@ -11,7 +13,50 @@
  *                         'loco'    three-axle 2TE10 bogie
  *   coupler(b, zEnd, sign)  SA-3 automatic coupler on its end beam
  *   ladder, handrail, rib    small fittings
+ *   stockBatch()          the batch a builder draws into: full detail,
+ *                         or inside coarse(fn) the far-view version
  * ------------------------------------------------------------------ */
+
+/**
+ * Far-view batch: drops rods, rails and small fittings and halves the
+ * segments of what is left, so a long train in the distance costs a
+ * fraction of the triangles. Lettering is dropped too.
+ */
+class CoarseBatch extends Batch {
+  constructor() { super({ cell: Infinity }); }
+
+  box(w, h, d, color, x, y, z, o = {}) {
+    const [a, m, c] = [w, h, d].sort((p, q) => p - q);
+    if (m < 0.12 || c < 0.3 || a < 0.015) return this;
+    return super.box(w, h, d, color, x, y, z, o);
+  }
+
+  cyl(r, h, color, x, y, z, o = {}) {
+    if (r < 0.1 || Math.max(2 * r, h) < 0.3) return this;
+    return super.cyl(r, h, color, x, y, z, { ...o, seg: Math.max(5, Math.round((o.seg ?? 8) / 2)) });
+  }
+
+  tube(ax, ay, az, bx, by, bz, r, color, o = {}) {
+    if (r < 0.06) return this;
+    return super.tube(ax, ay, az, bx, by, bz, r, color, o);
+  }
+
+  add(geometry, o = {}) {
+    if (o.mat && typeof o.mat !== 'string' && o.mat.map) return this;
+    return super.add(geometry, o);
+  }
+}
+
+let coarseMode = false;
+
+/** A batch for one car type, full or coarse depending on coarse(). */
+export const stockBatch = () => (coarseMode ? new CoarseBatch() : new Batch({ cell: Infinity }));
+
+/** Run a builder with stockBatch() handing out the far-view batch. */
+export function coarse(fn) {
+  coarseMode = true;
+  try { return fn(); } finally { coarseMode = false; }
+}
 
 export const DARK = 0x2b2b2a;
 export const STEEL = 0x3d3b37;
@@ -40,28 +85,25 @@ export function zCyl(b, r, z0, z1, x, y, color, seg = 10) {
   b.cyl(r, z1 - z0, color, x, y, z0, { rx: Math.PI / 2, seg });
 }
 
-/** A wheelset: two rolled wheels with bright treads and flanges, and the axle. */
+/** A wheelset: two rolled wheels with their flanges and hub bosses, and the axle. */
 function wheelset(b, z, r) {
   for (const s of [-1, 1]) {
     const xo = s * (TREAD_X + 0.07), xi = s * (TREAD_X - 0.07);
-    xCyl(b, r, Math.min(xo, xi), Math.max(xo, xi), r, z, WHEEL, 14);
-    // tread polished by the rail, and the flange on the inside
-    xCyl(b, r + 0.004, s > 0 ? xi + 0.02 : xo, s > 0 ? xo : xi - 0.02, r, z, TREAD, 14, true);
+    xCyl(b, r, Math.min(xo, xi), Math.max(xo, xi), r, z, WHEEL, 12);
+    // bright tread band polished by the rail, open so the face stays dark
+    xCyl(b, r + 0.004, s > 0 ? xi + 0.02 : xo, s > 0 ? xo : xi - 0.02, r, z, TREAD, 12, true);
     const f0 = s * (TREAD_X - 0.1), f1 = s * (TREAD_X - 0.065);
-    xCyl(b, r + 0.03, Math.min(f0, f1), Math.max(f0, f1), r, z, WHEEL, 14);
-    // hub boss on the outer face
+    xCyl(b, r + 0.03, Math.min(f0, f1), Math.max(f0, f1), r, z, WHEEL, 12);
     const h0 = s * (TREAD_X + 0.07), h1 = s * (TREAD_X + 0.12);
-    xCyl(b, 0.13, Math.min(h0, h1), Math.max(h0, h1), r, z, CAST, 8);
+    xCyl(b, 0.13, Math.min(h0, h1), Math.max(h0, h1), r, z, CAST, 6);
   }
-  xCyl(b, 0.075, -TREAD_X, TREAD_X, r, z, DARK, 6);
+  xCyl(b, 0.075, -TREAD_X, TREAD_X, r, z, DARK, 5);
 }
 
-/** Coil spring as a stack of discs, which reads as a coil at any range. */
+/** Coil spring: a light core with two dark bands, which reads as a coil at range. */
 function spring(b, x, y0, h, z, r = 0.075) {
-  const n = Math.max(3, Math.round(h / 0.06));
-  const step = h / n;
-  for (let i = 0; i < n; i++) b.cyl(r, step * 0.55, SPRING, x, y0 + i * step, z, { seg: 6 });
-  b.cyl(r * 0.45, h, DARK, x, y0, z, { seg: 5 });
+  b.cyl(r, h, SPRING, x, y0, z, { seg: 6 });
+  for (const t of [0.33, 0.66]) b.cyl(r + 0.008, h * 0.12, DARK, x, y0 + h * t, z, { seg: 6, open: true });
 }
 
 function brakeShoes(b, zAxle, r, towards) {
