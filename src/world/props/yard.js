@@ -5,6 +5,7 @@ import { SURF, TILE, hQuad } from '../../core/surfaces.js';
 import { Batch } from '../../core/batch.js';
 import { addBench } from './street.js';
 import { addTree } from './trees.js';
+import { addFlowerBed, ringSpots } from './plants.js';
 
 /* ------------------------------------------------------------------ *
  * Courtyard furniture of a Soviet microdistrict, June 2007: ground
@@ -277,12 +278,9 @@ export function addTyreBed(ctx, x, z, seed = 7, { r = 1.3 } = {}) {
     batch.cyl(0.3, 0.2, rng.chance(0.3) ? rng.pick([0x3e6aa6, 0xc9453d, 0xe2bd3f]) : PAL.whitewash, x + Math.cos(a) * r, 0, z + Math.sin(a) * r, { rx: Math.PI / 2, ry: -a + Math.PI / 2, seg: 8 });
   }
   groundOf(ctx).add(hQuad(x - r * 0.8, z - r * 0.8, x + r * 0.8, z + r * 0.8, 0.02, TILE.dirt), { mat: SURF.dirt, color: null, cast: false });
-  for (let i = 0; i < 9; i++) {
-    const a = rng.range(0, Math.PI * 2), d = rng.range(0, r * 0.7);
-    const c = rng.pick([0xd8453a, 0xf2e05a, 0xf0f0f0, 0xe07a3a, 0xc85aa0]);
-    batch.cyl(0.14, 0.3, 0x5f8a3a, x + Math.cos(a) * d, 0, z + Math.sin(a) * d, { seg: 5, rTop: 0.18 });
-    batch.cyl(0.12, 0.08, c, x + Math.cos(a) * d, 0.3, z + Math.sin(a) * d, { seg: 6 });
-  }
+  // marigolds, cosmos, petunias: whatever the neighbours had seeds of
+  addFlowerBed(batch, ringSpots(x, z, 0, r * 0.75, seed, 0.3), seed + 1,
+    { y: 0.02, colors: [0xd8453a, 0xf2e05a, 0xf0f0f0, 0xe07a3a, 0xc85aa0], height: 0.34, heads: 5 });
   ctx.colliders.circle(x, z, r + 0.2, { top: 0.35, tag: 'tyres' });
 }
 

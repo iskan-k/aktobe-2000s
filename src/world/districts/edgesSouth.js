@@ -6,6 +6,7 @@ import { rngKit } from '../../core/util.js';
 import { BLOCKS, BOUNDS, SIGHTS, TOWN_Z1, roadById, outerEdge } from '../plan.js';
 import { KIT, TILES, tbox, mtx, quadGeo } from '../buildings/houseKit.js';
 import { addTree } from '../props/trees.js';
+import { addWeeds } from '../props/plants.js';
 import { addWires } from '../props/street.js';
 
 /* ------------------------------------------------------------------ *
@@ -162,20 +163,25 @@ function wasteGround(ctx, x0, x1) {
   strip(batch, path, 1.3, -0.02, SURF.yard, TILE.yard);
   strip(batch, [[P.x1 + 2, P.z0 - 2.5], [84, 148], [92, TOWN_Z1]], 1.1, -0.019, SURF.yard, TILE.yard);
   // weeds, bushes, a heap of rubbish and the shell of a Moskvich
-  for (let i = 0; i < 160; i++) {
-    const x = rng.range(x0 + 1, x1 - 1), z = rng.range(z0 + 1, z1 - 0.5);
-    if (x > P.x0 - 1 && x < P.x1 + 1 && z > P.z0 - 1.5 && z < P.z1 + 0.5) continue;
-    // a clump of weeds: a squashed blob, now and then a tall dry stalk
-    const r = rng.range(0.25, 0.55);
-    const g = new THREE.IcosahedronGeometry(r, 0);
-    g.scale(1, rng.range(0.45, 0.8), 1);
-    g.translate(x, r * 0.25, z);
-    batch.add(g, { color: rng.pick([0x7a8a3e, 0x8a9a4a, 0x6a7a36, 0x9a9656]), mat: 'foliage', cast: false });
-    if (rng.chance(0.25)) batch.cyl(0.015, rng.range(0.9, 1.5), 0xa89a62, x + 0.1, 0, z, { seg: 3, cast: false });
+  // weeds in patches: wormwood and dry grass mostly, burdock where it is damp
+  for (let i = 0; i < 70; i++) {
+    const cx = rng.range(x0 + 2, x1 - 2), cz = rng.range(z0 + 1.5, z1 - 1);
+    const n = rng.int(1, 4);
+    for (let k = 0; k < n; k++) {
+      const x = cx + rng.range(-1.6, 1.6), z = cz + rng.range(-1.2, 1.2);
+      if (x < x0 + 0.5 || x > x1 - 0.5 || z < z0 + 0.5 || z > z1 - 0.3) continue;
+      if (x > P.x0 - 1 && x < P.x1 + 1 && z > P.z0 - 1.5 && z < P.z1 + 0.5) continue;
+      addWeeds(batch, x, z, 5000 + i * 7 + k, { scale: rng.range(0.8, 1.4) });
+    }
   }
-  for (const [x, z] of [[-4, 153], [8, 131], [76, 152], [100, 128], [70, 130], [-8, 140]]) {
-    addTree(batch, rng.pick(['shrub', 'young', 'elm']), x, z, 3000 + x, { scale: 0.7 });
-    colliders.circle(x, z, 0.25, { tag: 'tree' });
+  // self-seeded trees and bushes: elms, maples, a yellow acacia thicket
+  const wild = [
+    [-4, 153, 'elm'], [8, 131, 'acacia'], [76, 152, 'elm'], [100, 128, 'maple'], [70, 130, 'acacia'], [-8, 140, 'maple'],
+    [12, 150, 'acacia'], [56, 153, 'young'], [98, 152, 'acacia'], [108, 138, 'elm'],
+  ];
+  for (const [x, z, kind] of wild) {
+    addTree(batch, kind, x, z, 3000 + x, { scale: kind === 'acacia' ? 1.1 : 0.75, whitewash: false });
+    if (kind !== 'acacia') colliders.circle(x, z, 0.25, { tag: 'tree' });
   }
   const hx = 86, hz = 131;
   const heap = new THREE.ConeGeometry(2.6, 1.1, 8, 1, true);

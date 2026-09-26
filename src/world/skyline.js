@@ -4,6 +4,7 @@ import { canvasTex, cached } from '../core/textures.js';
 import { rngKit } from '../core/util.js';
 import { BOUNDS, RAIL, onStreet } from './plan.js';
 import { tboxGeo, mtx } from './buildings/houseKit.js';
+import { farTree } from './props/plants.js';
 
 /* ------------------------------------------------------------------ *
  * The rest of Aktobe, seen from the neighbourhood: microdistricts of
@@ -12,8 +13,9 @@ import { tboxGeo, mtx } from './buildings/houseKit.js';
  * tower to the north-west, factory chimneys and a water tower to the
  * north-east. To the south there is only steppe (see edgesSouth.js).
  *
- * Everything is cheap: boxes with one tiled window texture, blobs for
- * trees, no shadows, fog on. It all goes into the `far` batch, which
+ * Everything is cheap: boxes with one tiled window texture, trees as a
+ * single core blob in the town's foliage colours (see plants.js), rows
+ * of pyramidal poplars along the blocks, no shadows, fog on. It all goes into the `far` batch, which
  * has one huge cell, so the whole skyline is a handful of draw calls.
  * ------------------------------------------------------------------ */
 
@@ -22,7 +24,6 @@ const MARGIN = 34;                   // keep clear of the playable area
 const RING = [262, 720];
 const PANELS = [0xe8dcc0, 0xdcdcd4, 0xe8d8a8, 0xe2cbb8, 0xcfd8dc, 0xd8d0c0, 0xeae6da];
 const ROOFS = [0x8a8c8a, 0x9a4a3a, 0x4e7a5a, 0x2b55a0, 0xa8aaa8, 0x7a6a5a];
-const TREES = [0x5f7f3a, 0x4f7034, 0x6a8a42, 0x587a38];
 
 /** One window bay, greyscale so the vertex colour tints the panels. */
 function facadeTex() {
@@ -74,12 +75,18 @@ function fits(x, z, w, d, ry) {
   return true;
 }
 
+/** A yard tree: mostly round elms and maples, now and then a poplar. */
 function treeBlob(batch, x, z, rng, scale = 1) {
-  const r = rng.range(2.6, 4.2) * scale;
-  const g = new THREE.IcosahedronGeometry(r, 0);
-  g.scale(1, rng.range(1.0, 1.5), 1);
-  g.translate(x, r * 0.9 + 1.5 * scale, z);
-  batch.add(g, { color: rng.pick(TREES), mat: 'foliage', cast: false, receive: false });
+  farTree(batch, x, z, rng, { kind: rng.chance(0.25) ? 'poplar' : 'round', scale });
+}
+
+/** A row of pyramidal poplars from (x0, z0) to (x1, z1), about 9 m apart. */
+function poplarRow(batch, x0, z0, x1, z1, rng) {
+  const n = Math.max(2, Math.round(Math.hypot(x1 - x0, z1 - z0) / 9));
+  for (let i = 0; i <= n; i++) {
+    const x = x0 + ((x1 - x0) * i) / n, z = z0 + ((z1 - z0) * i) / n;
+    if (clearOfTown(x, z, -4)) farTree(batch, x, z, rng, { kind: 'poplar', scale: rng.range(0.9, 1.1) });
+  }
 }
 
 /**
@@ -106,6 +113,13 @@ function microdistrict(batch, cx, cz, ry, rng, dist) {
       if (!fits(x, z, w, d, yaw)) continue;
       block(batch, x, z, w, d, floors, yaw, rng.pick(PANELS));
       count++;
+      // a poplar row along the front of some blocks, as along every
+      // Aktobe street
+      if (rng.chance(0.22)) {
+        const fz = (yaw === ry ? d : w) / 2 + 7;
+        const [ax, az] = put(lx - w / 2, lz - fz), [bx, bz] = put(lx + w / 2, lz - fz);
+        poplarRow(batch, ax, az, bx, bz, rng);
+      }
       // yard trees on the sunny side
       for (let k = 0; k < 5; k++) {
         const [tx, tz] = put(lx + rng.range(-w / 2, w / 2), lz + rng.range(10, 18));
@@ -134,7 +148,9 @@ function lowHouses(batch, x0, z0, x1, z1, rng) {
       roof.scale(1, 0.55, 1);
       roof.translate(0, 3.2 + 0.275 * r, 0);
       batch.add(roof, { color: rng.pick(ROOFS), matrix: mtx(hx, 0, hz, ry), cast: false, receive: false });
-      if (rng.chance(0.7)) treeBlob(batch, hx + rng.range(-8, 8), hz + rng.range(6, 9), rng, 0.8);
+      // a fruit tree in the garden behind
+      const tx = hx + rng.range(-7, 7), tz = hz + rng.range(6, 9);
+      if (rng.chance(0.7) && clearOfTown(tx, tz)) farTree(batch, tx, tz, rng, { kind: 'fruit' });
     }
   }
 }
@@ -210,6 +226,8 @@ export function buildSkyline(batch) {
       // private sector to the west and east, microdistricts elsewhere
       if (Math.abs(x) > 280 && z > -140 && z < 150 && rng.chance(0.55)) {
         lowHouses(batch, x - 50, z - 50, x + 50, z + 50, rng);
+        // the poplars along the street through it
+        poplarRow(batch, x - 50, z + 2, x + 50, z + 2, rng);
         continue;
       }
       if (rng.chance(0.12)) continue;
