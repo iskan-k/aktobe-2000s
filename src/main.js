@@ -45,7 +45,7 @@ renderer.shadowMap.type = THREE.PCFShadowMap;
 renderer.setClearColor(new THREE.Color(PAL.fog), 1);
 
 const scene = new THREE.Scene();
-scene.fog = new THREE.Fog(PAL.fog, 90, 760);
+scene.fog = new THREE.Fog(PAL.fog, 160, 1100);
 
 const camera = new THREE.PerspectiveCamera(56, 1, 0.15, 1600);
 camera.rotation.order = 'YXZ';

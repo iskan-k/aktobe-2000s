@@ -70,13 +70,22 @@ npm run dev        # then open http://127.0.0.1:5188
   - School No. 9.
   - The central bazaar.
   - A private-sector street of houses behind fences.
-  - The station quarter.
+  - The station quarter, with the Эр 791-57 steam engine on its plinth.
+- **Sights on the south edge.**
+  - The Memorial of Glory: the 19 m obelisk, the Eternal Flame (lay
+    carnations for 150 ₸), name walls, a T-34 and the Aliya Moldagulova
+    statue.
+  - The Lenin statue in its square, as it stood until 2018.
+  - The АҚТӨБЕ stele with its mosaic.
+  - A kumys yurt with a mare and foal, and the shashlyk café «Жайлау».
+  - A silver heating main that climbs over ул. Айтеке би.
 - **Street life.** Kiosks and a bazaar where you can buy things with your
   1,500 tenge. Food and drink go into your hand: пломбир, эскимо, a brick
   loaf, lepyoshka, Тархун, Буратино and Дюшес lemonade, kvass in a гранёный
   стакан, Pepsi, семечки, kurt and strawberries. Click to eat or drink, and
-  drop the empty in any bin. There are also payphones, a post box, pigeons, dogs, a cat,
-  swings and a carousel, carpets to beat, a water pump, and 32 podyezd doors.
+  drop the empty in any bin. There are also payphones, a post box, pigeons,
+  dogs, a cat, swings and a carousel, carpets to beat, a water pump, podyezd
+  doors, and ground-floor flats turned into shops.
 
 ## Development
 
