@@ -2,7 +2,7 @@ import * as THREE from 'three';
 import {
   Parts, greenhouse, bottomLine, lineAt, wheelRig, lamps, seatedFigure, GLASS, tone, lensUV,
 } from '../kit.js';
-import { withInside } from '../../core/batch.js';
+import { flipWinding } from '../kit.js';
 import { addPlates, randomPlate } from '../plates.js';
 
 /* ------------------------------------------------------------------ *
@@ -60,20 +60,32 @@ export function roundLamp(P, x, y, z, r, face = -1, { bezel = CHROME, glass = LA
 }
 
 const LINER = 0x141414;
+let LINER_TUBE = null, LINER_WALL = null;
+const NO_TURN = new THREE.Quaternion();
+const HALF_TURN = new THREE.Quaternion().setFromAxisAngle(new THREE.Vector3(0, 1, 0), Math.PI);
+
+/** Turn a surface inside out: reversed winding and flipped normals. */
+function inside(g) {
+  flipWinding(g);
+  const n = g.attributes.normal.array;
+  for (let i = 0; i < n.length; i++) n[i] = -n[i];
+  return g;
+}
 
 /**
  * Dark wheelhouses: a half-tube just inside each arch and an inner wall,
  * so the arches read deep and nobody sees daylight through a car.
  */
 export function archLiners(P, wheels, ra, hw, depth = 0.3) {
-  const tube = withInside(new THREE.CylinderGeometry(1, 1, 1, 12, 1, true, 0, Math.PI).rotateZ(Math.PI / 2));
-  const wall = withInside(new THREE.CircleGeometry(1, 12, 0, Math.PI).rotateY(Math.PI / 2));
+  // one-sided: the tube shows its inside to the wheel below, the wall faces out
+  const tube = LINER_TUBE ??= inside(new THREE.CylinderGeometry(1, 1, 1, 8, 1, true, 0, Math.PI).rotateZ(Math.PI / 2));
+  const wall = LINER_WALL ??= new THREE.CircleGeometry(1, 8, 0, Math.PI).rotateY(Math.PI / 2);
   const m = new THREE.Matrix4();
   for (const w of wheels) {
     for (const s of [1, -1]) {
       m.compose(new THREE.Vector3(s * (hw - depth / 2 - 0.012), w.r, w.z), new THREE.Quaternion(), new THREE.Vector3(depth, ra - 0.006, ra - 0.006));
       P.add(tube, LINER, m);
-      m.compose(new THREE.Vector3(s * (hw - depth - 0.01), w.r, w.z), new THREE.Quaternion(), new THREE.Vector3(1, ra, ra));
+      m.compose(new THREE.Vector3(s * (hw - depth - 0.01), w.r, w.z), s > 0 ? NO_TURN : HALF_TURN, new THREE.Vector3(1, ra, ra));
       P.add(wall, LINER, m);
     }
   }
@@ -86,7 +98,8 @@ export function topSeam(P, top, z0, z1, xs, color = 0x3a3632) {
     const [za, ya] = pts[i], [zb, yb] = pts[i + 1];
     const len = Math.hypot(zb - za, yb - ya);
     if (len < 0.01) continue;
-    for (const x of xs) P.box(0.006, 0.004, len, color, x, (ya + yb) / 2 + 0.002, (za + zb) / 2, { rx: -Math.atan2(yb - ya, zb - za) });
+    // a flat strip facing up, two triangles a segment
+    for (const x of xs) P.quad([x - 0.003, ya + 0.002, za], [x - 0.003, yb + 0.002, zb], [x + 0.003, yb + 0.002, zb], [x + 0.003, ya + 0.002, za], color);
   }
 }
 
@@ -112,7 +125,7 @@ export function sideX(hw, z, y) {
 
 /** Door seam lines and handles on both sides. */
 export function doorLines(P, hw, seams, ySill, yBelt, handles = [], color = 0x2a2a2a) {
-  const N = 4;
+  const N = 3;
   for (const s of [1, -1]) {
     for (const z of seams) {
       for (let i = 0; i < N; i++) {

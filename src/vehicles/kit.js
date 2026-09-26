@@ -508,7 +508,7 @@ export class Parts {
    * A flat polygon [[z, y], ...] in a side plane at x = sgn * xAt(y),
    * extruded `depth` inward. With `holes` it becomes a frame.
    */
-  sidePanel(outline, holes, sgn, xAt, depth, color, o = {}) {
+  sidePanel(outline, holes, sgn, xAt, depth, color, { outward = false, ...o } = {}) {
     const shape = new THREE.Shape(outline.map(([z, y]) => new THREE.Vector2(z, y)));
     for (const h of holes) shape.holes.push(new THREE.Path(h.map(([z, y]) => new THREE.Vector2(z, y))));
     const g = depth > 0
@@ -518,6 +518,8 @@ export class Parts {
       const X = v.x, Y = v.y, Z = v.z;
       v.set(sgn * (xAt(Y) - Z), Y, X);
     }, sgn < 0);
+    // a flat panel faces inward as mapped; `outward` turns it to face out
+    if (outward) flipWinding(g).computeVertexNormals();
     return this.add(g, color, null, o);
   }
 
@@ -578,7 +580,7 @@ export function greenhouse(P, gh, color) {
     for (const h of holes) {
       P.sidePanel(h, [], sgn, (y) => xAt(y) - 0.012, 0, gh.glass ?? GLASS.clear, { glass: true });
       // the rubber seal: a thin frame standing just proud of the pillars
-      if (seal !== null) P.sidePanel(growPoly(h, 0.016), [h], sgn, (y) => xAt(y) + 0.004, 0.012, seal);
+      if (seal !== null) P.sidePanel(growPoly(h, 0.016), [h], sgn, (y) => xAt(y) + 0.004, 0, seal, { outward: true });
     }
   }
   // roof, a little crowned, with the pale headliner under it
@@ -626,58 +628,67 @@ export function wheelGeometry(r, w, { rim = 0xb9b7b0, hub = 0xd8d6cf, style = 'c
   const key = [r, w, rim, hub, style, side, pair].join('|');
   if (wheelCache.has(key)) return wheelCache.get(key);
   const P = new Parts();
+  // Everything on the wheel face is placed in fractions of the tyre width
+  // beyond its sidewall, so a unit wheel scaled per instance looks the
+  // same as one built to size. Faces are flat and one-sided: nobody sees
+  // the inside of a hubcap.
   const face = (x, s, k) => x + s * (w / 2 + k * w);
+  const turn = (s) => new THREE.Matrix4().makeRotationY(s > 0 ? Math.PI / 2 : -Math.PI / 2);
+  const plate = (x, s, k, rr, color, seg = 14) => {
+    const m = turn(s).premultiply(new THREE.Matrix4().makeTranslation(face(x, s, k), 0, 0));
+    m.multiply(new THREE.Matrix4().makeScale(rr, rr, 1));
+    P.add(discGeo(seg), color, m);
+  };
+  const ring = (x, s, k0, k1, rr, color, seg = 12) => {
+    P.cyl(rr, (k1 - k0) * w, color, face(x, s, (k0 + k1) / 2), 0, 0, { axis: 'x', seg, open: true });
+  };
+  // a flat mark on the wheel face (a vent hole, a slot, a nut, a spoke gap): one quad
+  const dot = (x, s, k, a, rr, hy, hz, color) => {
+    const px = face(x, s, k), cy = Math.cos(a) * rr, cz = Math.sin(a) * rr;
+    const ty = -Math.sin(a), tz = Math.cos(a);      // tangent round the wheel
+    const ry = Math.cos(a), rz = Math.sin(a);        // radial
+    const pts = [[-1, -1], [1, -1], [1, 1], [-1, 1]].map(([u, v]) => [px, cy + ty * u * hz + ry * v * hy, cz + tz * u * hz + rz * v * hy]);
+    if (s > 0) P.quad(pts[0], pts[1], pts[2], pts[3], color); else P.quad(pts[3], pts[2], pts[1], pts[0], color);
+  };
   const one = (x, s) => {
-    P.cyl(r, w, 0x262626, x, 0, 0, { axis: 'x', seg: 16 });
-    // the tyre wall's shoulder, a shade lighter than the tread
-    P.cyl(r * 0.93, w * 1.04, 0x2f2f2f, x, 0, 0, { axis: 'x', seg: 16 });
-    P.cyl(r * 0.8, w * 0.7, 0x1b1b1b, x + s * 0.004, 0, 0, { axis: 'x', seg: 12 });
+    P.cyl(r, w, 0x262626, x, 0, 0, { axis: 'x', seg: 14 });
     if (style === 'lada') {
       // Zhiguli: silver steel wheel, a ring of vent holes, the chrome dome cap
-      P.cyl(r * 0.7, w * 0.08, rim, face(x, s, 0.02), 0, 0, { axis: 'x', seg: 14 });
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        P.box(w * 0.06, r * 0.1, r * 0.16, 0x1e1e1e, face(x, s, 0.07), Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, { rx: a });
-      }
-      P.cyl(r * 0.33, w * 0.14, hub, face(x, s, 0.1), 0, 0, { axis: 'x', seg: 12 });
-      P.cyl(r * 0.2, w * 0.12, 0xf4f4f0, face(x, s, 0.2), 0, 0, { axis: 'x', seg: 10 });
+      plate(x, s, 0.03, r * 0.7, rim);
+      for (let i = 0; i < 6; i++) dot(x, s, 0.04, (i / 6) * Math.PI * 2, r * 0.5, r * 0.05, r * 0.08, 0x1e1e1e);
+      ring(x, s, 0.03, 0.12, r * 0.33, hub);
+      plate(x, s, 0.12, r * 0.33, hub, 12);
+      ring(x, s, 0.12, 0.2, r * 0.2, 0xf4f4f0, 10);
+      plate(x, s, 0.2, r * 0.2, 0xf4f4f0, 10);
     } else if (style === 'volga') {
       // the big chrome hubcap of a Volga, with its raised centre and badge
-      P.cyl(r * 0.74, w * 0.08, rim, face(x, s, 0.02), 0, 0, { axis: 'x', seg: 16 });
-      P.cyl(r * 0.52, w * 0.1, 0x9a9a96, face(x, s, 0.07), 0, 0, { axis: 'x', seg: 14 });
-      P.cyl(r * 0.44, w * 0.12, hub, face(x, s, 0.1), 0, 0, { axis: 'x', seg: 14 });
-      P.cyl(r * 0.12, w * 0.1, 0x7a1d18, face(x, s, 0.16), 0, 0, { axis: 'x', seg: 8 });
+      plate(x, s, 0.03, r * 0.74, rim, 16);
+      plate(x, s, 0.05, r * 0.52, 0x9a9a96);
+      ring(x, s, 0.05, 0.12, r * 0.44, hub);
+      plate(x, s, 0.12, r * 0.44, hub);
+      plate(x, s, 0.13, r * 0.12, 0x7a1d18, 8);
     } else if (style === 'deckel') {
       // flat slotted hubcap (a Mercedes, an Audi 100 on steel wheels)
-      P.cyl(r * 0.7, w * 0.08, rim, face(x, s, 0.02), 0, 0, { axis: 'x', seg: 16 });
-      for (let i = 0; i < 8; i++) {
-        const a = (i / 8) * Math.PI * 2;
-        P.box(w * 0.06, r * 0.07, r * 0.2, 0x303030, face(x, s, 0.07), Math.cos(a) * r * 0.5, Math.sin(a) * r * 0.5, { rx: a });
-      }
-      P.cyl(r * 0.2, w * 0.1, hub, face(x, s, 0.09), 0, 0, { axis: 'x', seg: 10 });
+      plate(x, s, 0.03, r * 0.7, rim, 16);
+      for (let i = 0; i < 8; i++) dot(x, s, 0.04, (i / 8) * Math.PI * 2, r * 0.5, r * 0.035, r * 0.1, 0x303030);
+      plate(x, s, 0.06, r * 0.2, hub, 10);
     } else if (style === 'cap') {
       // chrome hubcap of a Soviet saloon
-      P.cyl(r * 0.6, 0.02, rim, x + s * (w / 2 + 0.006), 0, 0, { axis: 'x', seg: 12 });
-      P.cyl(r * 0.22, 0.03, hub, x + s * (w / 2 + 0.018), 0, 0, { axis: 'x', seg: 8 });
+      plate(x, s, 0.03, r * 0.6, rim, 12);
+      ring(x, s, 0.03, 0.1, r * 0.22, hub, 8);
+      plate(x, s, 0.1, r * 0.22, hub, 8);
     } else if (style === 'alloy') {
-      P.cyl(r * 0.62, 0.02, rim, x + s * (w / 2 + 0.004), 0, 0, { axis: 'x', seg: 12 });
-      for (let i = 0; i < 5; i++) {
-        const a = (i / 5) * Math.PI * 2;
-        P.box(0.02, r * 0.5, 0.05, 0x5a5a5a, x + s * (w / 2 + 0.012), Math.cos(a) * r * 0.32, Math.sin(a) * r * 0.32, { rx: a });
-      }
-      P.cyl(r * 0.14, 0.03, hub, x + s * (w / 2 + 0.016), 0, 0, { axis: 'x', seg: 8 });
+      // five spokes: dark windows between them on a silver disc
+      plate(x, s, 0.03, r * 0.62, rim, 14);
+      for (let i = 0; i < 5; i++) dot(x, s, 0.04, (i / 5 + 0.1) * Math.PI * 2, r * 0.38, r * 0.16, r * 0.13, 0x3a3a3a);
+      plate(x, s, 0.06, r * 0.14, hub, 8);
     } else {
-      // plain steel wheel (trucks, buses, Niva): painted disc, hand holes, nuts
-      P.cyl(r * 0.66, 0.02, rim, x + s * (w / 2 + 0.004), 0, 0, { axis: 'x', seg: 14 });
-      for (let i = 0; i < 4; i++) {
-        const a = (i / 4) * Math.PI * 2 + Math.PI / 4;
-        P.box(w * 0.06, r * 0.14, r * 0.14, 0x1e1e1e, x + s * (w / 2 + 0.012), Math.cos(a) * r * 0.46, Math.sin(a) * r * 0.46);
-      }
-      P.cyl(r * 0.25, 0.06, hub, x + s * (w / 2 + 0.02), 0, 0, { axis: 'x', seg: 8 });
-      for (let i = 0; i < 6; i++) {
-        const a = (i / 6) * Math.PI * 2;
-        P.cyl(r * 0.035, 0.07, 0x8a8a86, x + s * (w / 2 + 0.03), Math.cos(a) * r * 0.2, Math.sin(a) * r * 0.2, { axis: 'x', seg: 6 });
-      }
+      // plain steel wheel (trucks, buses, Niva): painted disc, hand holes, hub and nuts
+      plate(x, s, 0.03, r * 0.66, rim);
+      for (let i = 0; i < 4; i++) dot(x, s, 0.04, (i / 4) * Math.PI * 2 + Math.PI / 4, r * 0.46, r * 0.07, r * 0.07, 0x1e1e1e);
+      ring(x, s, 0.03, 0.14, r * 0.25, hub, 8);
+      plate(x, s, 0.14, r * 0.25, hub, 8);
+      for (let i = 0; i < 6; i++) dot(x, s, 0.15, (i / 6) * Math.PI * 2, r * 0.17, r * 0.028, r * 0.028, 0x8a8a86);
     }
   };
   if (pair) { one(pair, 1); one(-pair, -1); } else one(0, side);
