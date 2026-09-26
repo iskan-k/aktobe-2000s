@@ -69,15 +69,27 @@ export function tuftTex() {
         }
       }
       if (cell === 2) {
-        // dandelions: yellow heads, and a couple gone to clocks
+        // dandelions: ragged yellow heads, and a couple gone to clocks
         for (let i = 0; i < 6; i++) {
-          const x = x0 + 64 + r.range(-40, 40), top = r.range(30, 70);
+          const x = x0 + 64 + r.range(-40, 40), top = r.range(34, 72);
           ctx.strokeStyle = '#6f8a3a'; ctx.lineWidth = 2.5;
           ctx.beginPath(); ctx.moveTo(x, 128); ctx.lineTo(x + r.range(-6, 6), top); ctx.stroke();
-          const clock = i < 2;
-          ctx.fillStyle = clock ? '#f2f0e6' : '#f2c21c';
-          ctx.beginPath(); ctx.arc(x, top, clock ? 8 : 7, 0, Math.PI * 2); ctx.fill();
-          if (!clock) { ctx.fillStyle = '#e09a12'; ctx.beginPath(); ctx.arc(x, top, 3, 0, Math.PI * 2); ctx.fill(); }
+          if (i < 2) {
+            const g = ctx.createRadialGradient(x, top, 1, x, top, 8);
+            g.addColorStop(0, 'rgba(236,234,222,0.95)');
+            g.addColorStop(0.75, 'rgba(242,240,230,0.85)');
+            g.addColorStop(1, 'rgba(242,240,230,0)');
+            ctx.fillStyle = g;
+            ctx.beginPath(); ctx.arc(x, top, 8, 0, Math.PI * 2); ctx.fill();
+            continue;
+          }
+          ctx.fillStyle = '#f0bd1a';
+          for (let k = 0; k < 12; k++) {
+            const a = (k / 12) * Math.PI * 2;
+            ctx.beginPath(); ctx.ellipse(x + Math.cos(a) * 4, top + Math.sin(a) * 2.6, 3.2, 1.6, a, 0, Math.PI * 2); ctx.fill();
+          }
+          ctx.fillStyle = '#f7d23a';
+          ctx.beginPath(); ctx.ellipse(x, top - 1, 4, 3, 0, 0, Math.PI * 2); ctx.fill();
         }
       }
       if (cell === 3) {
@@ -212,6 +224,17 @@ export function decalTex() {
         ctx.fillRect(x0 + u * w - s, y0 + r.range(0, h - s), s, s);
       }
       ctx.globalAlpha = 1;
+      // poplar fluff rolled into the gutter, caught against the kerb
+      for (let i = 0; i < 9; i++) {
+        const x = x0 + w * r.range(0.72, 0.97), y = y0 + r.range(10, h - 10), rad = r.range(2, 5);
+        for (let k = 0; k < 3; k++) {
+          const g = ctx.createRadialGradient(x + r.range(-4, 4), y + r.range(-6, 6), 0.5, x, y, rad);
+          g.addColorStop(0, 'rgba(246,244,236,0.55)');
+          g.addColorStop(1, 'rgba(246,244,236,0)');
+          ctx.fillStyle = g;
+          ctx.beginPath(); ctx.arc(x, y, rad * 1.4, 0, Math.PI * 2); ctx.fill();
+        }
+      }
     }
 
     // trodden path: packed earth with soft grassy edges; tiles along v
