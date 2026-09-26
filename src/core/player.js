@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { clamp, damp } from './util.js';
-import { pushCircle } from './physics.js';
+import { pushCircle, colliderContains } from './physics.js';
 
 /* ------------------------------------------------------------------ *
  * First-person walker.
@@ -8,7 +8,9 @@ import { pushCircle } from './physics.js';
  * Pointer-lock look, eased WASD movement, circle-vs-footprint collision
  * against the static colliders and against whatever is moving this frame
  * (cars, buses, the train), and a ground query so the walker steps up
- * onto kerbs and porches. No jump, no crouch.
+ * onto kerbs and porches. Space jumps about half a metre: enough to
+ * clear a bench or land on it, a low wall or a plinth. Once you are up on
+ * a collider's top you can walk along it; step off the edge and you fall.
  *
  * Other controllers (the car, a bus seat, a swing) take the camera over
  * by setting `player.active = false`; the walker then stands still,
@@ -18,6 +20,12 @@ import { pushCircle } from './physics.js';
 export const EYE = 1.64;
 export const RADIUS = 0.3;
 const STEP = 0.42;
+const GRAVITY = 16;              // m/s², a little brisker than real for a snappy hop
+const JUMP_SPEED = 4.3;          // about 0.5 m with the frame-stepped gravity
+const FALL_START = 0.45;         // a drop deeper than a step turns into a fall
+const SUPPORT_REACH = 0.12;      // how far past a collider's edge your feet still find it
+const LAND_SOUND_SPEED = 1.6;    // m/s downward before a landing is audible
+const MIN_STAND_R = 0.25;        // poles and trunks are too thin to stand on
 
 export class Player {
   constructor(camera, world, input) {
@@ -36,6 +44,10 @@ export class Player {
     this.moving = 0;
     this.stepPhase = 0;
     this.onStep = null;   // footstep callback for audio
+    this.onLand = null;   // landing callback, gets the impact speed
+    this.vy = 0;
+    this.airborne = false;
+    this.onCollider = false;   // standing on top of a bench, wall or plinth
 
     this._fwd = new THREE.Vector3();
     this._right = new THREE.Vector3();
@@ -57,8 +69,35 @@ export class Player {
     this.yaw = yaw;
     this.pitch = pitch;
     this.vel.set(0, 0, 0);
+    this.vy = 0;
+    this.airborne = false;
+    this.onCollider = false;
     this.bob = 0;
     this.applyCamera();
+  }
+
+  /** Hop, if both feet are on something. */
+  jump() {
+    if (!this.active || this.airborne) return false;
+    this.vy = JUMP_SPEED;
+    this.airborne = true;
+    return true;
+  }
+
+  /**
+   * Highest collider top under (x, z) that the feet can stand on: at or
+   * below `maxY`, not overhead, not a thin pole. -Infinity if none.
+   */
+  _colliderSupport(x, z, maxY) {
+    let best = -Infinity;
+    const r = SUPPORT_REACH;
+    for (const c of this.world.colliders.near(x - 1, z - 1, x + 1, z + 1)) {
+      if (!Number.isFinite(c.top) || c.top > maxY || c.top <= best) continue;
+      if (c.bottom > c.top - 0.05) continue;
+      if (c.kind === 'circle' && c.r < MIN_STAND_R) continue;
+      if (colliderContains(c, x, z, r)) best = c.top;
+    }
+    return best;
   }
 
   reset() {
@@ -111,17 +150,54 @@ export class Player {
     this.pos.x = clamp(this.pos.x, b.x0, b.x1);
     this.pos.z = clamp(this.pos.z, b.z0, b.z1);
 
-    const targetY = this.world.heightAt(this.pos.x, this.pos.z, this.pos.y);
-    this.pos.y = targetY > this.pos.y ? damp(this.pos.y, targetY, 22, dt) : damp(this.pos.y, targetY, 12, dt);
+    this._vertical(dt);
 
     this.moving = Math.hypot(this.vel.x, this.vel.z);
     const prev = this.bob;
-    this.bob += dt * this.moving * (this.input.shift ? 2.9 : 2.6);
+    if (!this.airborne) this.bob += dt * this.moving * (this.input.shift ? 2.9 : 2.6);
     // one footstep per half bob cycle
     if (Math.floor(prev / Math.PI) !== Math.floor(this.bob / Math.PI) && this.moving > 0.6) {
       this.onStep?.(this.moving);
     }
     this.applyCamera();
+  }
+
+  /**
+   * Feet height: ground surfaces always, collider tops only in the air or
+   * once you already stand on one (walking, you still pass over a low
+   * kerb block as before instead of climbing every sandbox edge).
+   */
+  _vertical(dt) {
+    const p = this.pos;
+    const ground = this.world.heightAt(p.x, p.z, p.y);
+    if (this.airborne) {
+      const prevY = p.y;
+      this.vy -= GRAVITY * dt;
+      p.y += this.vy * dt;
+      if (this.vy > 0) return;
+      const support = Math.max(ground, this._colliderSupport(p.x, p.z, prevY + 0.02));
+      if (p.y <= support) {
+        const impact = -this.vy;
+        p.y = support;
+        this.vy = 0;
+        this.airborne = false;
+        this.onCollider = support > ground + 0.01;
+        if (impact > LAND_SOUND_SPEED) this.onLand?.(impact);
+      }
+      return;
+    }
+    let support = ground;
+    if (this.onCollider) {
+      support = Math.max(ground, this._colliderSupport(p.x, p.z, p.y + 0.05));
+      this.onCollider = support > ground + 0.01;
+    }
+    if (support < p.y - FALL_START) {
+      // walked off a wall or a porch edge: fall instead of gliding down
+      this.airborne = true;
+      this.vy = 0;
+      return;
+    }
+    p.y = support > p.y ? damp(p.y, support, 22, dt) : damp(p.y, support, 12, dt);
   }
 
   applyCamera() {

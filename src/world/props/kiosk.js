@@ -268,6 +268,8 @@ export function buy(game, it, at) {
   game.audio.play('kioskWindow', { pos, volume: 0.6 });
   if (it.sound) setTimeout(() => game.audio.play(it.sound, { pos, volume: 0.9 }), 450);
   if (it.onBuy) it.onBuy(game);
+  // food and drink go straight into your hand
+  if (it.hold) game.hands?.give(it.hold);
   if (it.toast) game.hud.flash(it.toast, 2600);
   if (it.sms) setTimeout(() => { game.hud.sms(it.sms[0], it.sms[1]); game.audio.play('sms'); }, it.smsDelay ?? 2500);
   return true;
@@ -316,6 +318,87 @@ export function addPavilion(ctx, x, z, yaw, opts = {}) {
   return { hx: W / 2 + 0.3, hz: D / 2 + 0.3 };
 }
 
+/* The rate board in the exchange booth window, June 2007: [code, buy, sell]. */
+const RATES = [['USD', '121.50', '122.30'], ['EUR', '163.00', '165.00'], ['RUB', '4.70', '4.78']];
+
+/** A tiny flag beside each currency code, drawn in the cell at (x, y). */
+function flagMark(c, code, x, y, w, h) {
+  c.save();
+  c.fillStyle = '#ffffff';
+  c.fillRect(x - 2, y - 2, w + 4, h + 4);
+  if (code === 'USD') {
+    for (let i = 0; i < 7; i++) { c.fillStyle = i % 2 ? '#ffffff' : '#b8232f'; c.fillRect(x, y + (h * i) / 7, w, h / 7 + 0.5); }
+    c.fillStyle = '#23336e';
+    c.fillRect(x, y, w * 0.45, h * 0.55);
+  } else if (code === 'EUR') {
+    c.fillStyle = '#1f3d9a';
+    c.fillRect(x, y, w, h);
+    c.fillStyle = '#f2c230';
+    for (let i = 0; i < 12; i++) {
+      const a = (i / 12) * Math.PI * 2;
+      c.beginPath(); c.arc(x + w / 2 + Math.cos(a) * h * 0.32, y + h / 2 + Math.sin(a) * h * 0.32, h * 0.055, 0, Math.PI * 2); c.fill();
+    }
+  } else {
+    ['#ffffff', '#2a4fa8', '#c8282e'].forEach((col, i) => { c.fillStyle = col; c.fillRect(x, y + (h * i) / 3, w, h / 3 + 0.5); });
+  }
+  c.restore();
+}
+
+/**
+ * The painted rate board of a 2007 exchange booth: an aluminium frame,
+ * a blue bilingual header, and white plastic number cards slotted in by
+ * hand each morning. No LEDs yet. Three columns that never overlap:
+ * currency, buy, sell.
+ */
+function drawRates(c, pw, ph) {
+  const u = pw / 100;
+  // aluminium frame and the dark board inside it
+  c.fillStyle = '#b9bcbd';
+  c.fillRect(0, 0, pw, ph);
+  c.fillStyle = '#8d9092';
+  c.fillRect(1.2 * u, 1.2 * u, pw - 2.4 * u, ph - 2.4 * u);
+  c.fillStyle = '#1d2226';
+  c.fillRect(2.4 * u, 2.4 * u, pw - 4.8 * u, ph - 4.8 * u);
+  // header
+  c.fillStyle = '#1b3f8a';
+  c.fillRect(2.4 * u, 2.4 * u, pw - 4.8 * u, 17 * u);
+  centerText(c, 'ВАЛЮТА БАҒАМЫ', pw / 2, 8 * u, 88 * u, 7 * u, '#ffffff', { family: FONT.narrow });
+  centerText(c, 'КУРС ВАЛЮТ', pw / 2, 15 * u, 60 * u, 5.4 * u, '#f2c230', { family: FONT.narrow });
+  // the date, on its own slotted card
+  c.fillStyle = '#f1efe8';
+  c.fillRect(34 * u, 21.5 * u, 32 * u, 6.5 * u);
+  centerText(c, '15.06.2007', pw / 2, 24.9 * u, 29 * u, 5 * u, '#1d2226', { family: FONT.mono });
+  // column heads
+  const cols = { code: [4, 36], buy: [38, 67], sell: [69, 96] };
+  const mid = ([a, b]) => ((a + b) / 2) * u;
+  const wid = ([a, b]) => (b - a) * u;
+  centerText(c, 'САТЫП АЛУ', mid(cols.buy), 32.5 * u, wid(cols.buy) - u, 3.9 * u, '#d9dcd6', { family: FONT.narrow });
+  centerText(c, 'ПОКУПКА', mid(cols.buy), 37 * u, wid(cols.buy) - u, 3.9 * u, '#f2c230', { family: FONT.narrow });
+  centerText(c, 'САТУ', mid(cols.sell), 32.5 * u, wid(cols.sell) - u, 3.9 * u, '#d9dcd6', { family: FONT.narrow });
+  centerText(c, 'ПРОДАЖА', mid(cols.sell), 37 * u, wid(cols.sell) - u, 3.9 * u, '#f2c230', { family: FONT.narrow });
+  c.fillStyle = '#5b6064';
+  c.fillRect(4 * u, 40.5 * u, 92 * u, 0.6 * u);
+  RATES.forEach(([code, buy, sell], i) => {
+    const y = 43 + i * 18;
+    const cy = (y + 7.5) * u;
+    flagMark(c, code, 5.5 * u, (y + 4) * u, 9 * u, 7 * u);
+    centerText(c, code, 26 * u, cy, 17 * u, 10 * u, '#ffffff', { family: FONT.narrow });
+    for (const [col, val] of [[cols.buy, buy], [cols.sell, sell]]) {
+      // the white number card with a slight shadow in its slot
+      const x0 = (col[0] + 1) * u, w = wid(col) - 2 * u;
+      c.fillStyle = 'rgba(0,0,0,.45)';
+      c.fillRect(x0 + 0.6 * u, (y + 1.6) * u, w, 13 * u);
+      c.fillStyle = '#f4f2ea';
+      c.fillRect(x0, y * u, w, 13 * u);
+      c.fillStyle = 'rgba(0,0,0,.12)';
+      c.fillRect(x0, (y + 6.4) * u, w, 0.35 * u);
+      centerText(c, val, x0 + w / 2, cy - 0.3 * u, w - 2.4 * u, 10 * u, '#161a1d', { family: FONT.mono });
+    }
+  });
+  c.fillStyle = '#5b6064';
+  c.fillRect(4 * u, 97 * u - 3 * u, 92 * u, 0.5 * u);
+}
+
 /** Glazed booth with a yellow roof: 'press' or 'exchange'. */
 export function addBooth(ctx, x, z, yaw, opts = {}) {
   const o = frame(ctx, x, z, yaw);
@@ -330,26 +413,7 @@ export function addBooth(ctx, x, z, yaw, opts = {}) {
     quad(o, g, 0, 1.25, -D / 2 - 0.01, 0);
     quad(o, pressGeo(D - 0.2, 1.3), -W / 2 - 0.01, 1.25, 0, Math.PI / 2);
   } else {
-    const rates = atlasQuad('rates', 0.9, 0.9, (c, pw, ph) => {
-      c.fillStyle = '#101418';
-      c.fillRect(0, 0, pw, ph);
-      c.fillStyle = '#e8e4d8';
-      c.font = `bold ${Math.round(ph * 0.08)}px ${FONT.narrow}`;
-      c.textAlign = 'center';
-      c.fillText('ВАЛЮТА   ПОКУПКА   ПРОДАЖА', pw / 2, ph * 0.13);
-      const rows = [['USD', '122.40', '122.90'], ['EUR', '164.00', '165.00'], ['RUB', '4.70', '4.78']];
-      rows.forEach(([cur, b, s], i) => {
-        const y = ph * (0.36 + i * 0.22);
-        c.fillStyle = '#f2c230';
-        c.font = `bold ${Math.round(ph * 0.12)}px ${FONT.mono}`;
-        c.textAlign = 'left';
-        c.fillText(cur, pw * 0.06, y);
-        c.fillStyle = '#ff5a3a';
-        c.textAlign = 'right';
-        c.fillText(b, pw * 0.64, y);
-        c.fillText(s, pw * 0.96, y);
-      });
-    }, { ppm: 360 });
+    const rates = atlasQuad('rates-2007', 0.92, 0.92, drawRates, { ppm: 560 });
     quad(o, rates, -0.35, 1.45, -D / 2 - 0.012, 0);
     box(o, 0.4, 0.3, 0.03, 0x1e1c1a, 0.5, 1.0, -D / 2 - 0.03);
   }
@@ -380,7 +444,7 @@ export function addBooth(ctx, x, z, yaw, opts = {}) {
   } else {
     interact(o, 0.5, 1.1, -D / 2 - 0.2, 0.9, 0.8, 0.5, 'Exchange booth · dollars', (game) => {
       game.audio.play('kioskWindow', { volume: 0.5 });
-      game.hud.flash('USD 122.40 / 122.90 · EUR 164 / 165 · RUB 4.70 / 4.78. You have no dollars.', 3200);
+      game.hud.flash(`USD ${RATES[0][1]} / ${RATES[0][2]} · EUR ${RATES[1][1]} / ${RATES[1][2]} · RUB ${RATES[2][1]} / ${RATES[2][2]}. You have no dollars.`, 3200);
     });
   }
   return { hx: W / 2 + 0.2, hz: D / 2 + 0.3 };
@@ -402,10 +466,10 @@ export function addIceCream(ctx, x, z, yaw) {
   for (const s of [-1, 1]) box(o, 0.03, 0.42, 0.34, 0x8a8a88, 0.9 + s * 0.15, 0, 0.45);
   collide(o, 0, 0, 1.2, 0.8, 0.9);
   interact(o, -0.25, 1.0, -0.2, 0.7, 0.6, 0.8, 'Пломбир in a waffle cup · 50 ₸', (game) => {
-    buy(game, { price: 50, what: 'ice cream', sound: 'paper', toast: 'Пломбир, the good kind. It melts faster than you can eat it.', onBuy: (g) => { shop(g).icecreams++; } });
+    buy(game, { price: 50, what: 'ice cream', sound: 'paper', hold: 'plombir', toast: 'Пломбир, the good kind. It melts faster than you can eat it.', onBuy: (g) => { shop(g).icecreams++; } });
   });
   interact(o, 0.35, 1.0, -0.2, 0.5, 0.6, 0.8, 'Эскимо on a stick · 40 ₸', (game) => {
-    buy(game, { price: 40, what: 'ice cream', sound: 'paper', toast: 'Эскимо: vanilla in a chocolate coat, on a wooden stick.', onBuy: (g) => { shop(g).icecreams++; } });
+    buy(game, { price: 40, what: 'ice cream', sound: 'paper', hold: 'eskimo', toast: 'Эскимо: vanilla in a chocolate coat, on a wooden stick.', onBuy: (g) => { shop(g).icecreams++; } });
   });
   return { hx: 1.4, hz: 1.2 };
 }
@@ -456,7 +520,7 @@ export function addKvass(ctx, x, z, yaw) {
   umbrella(o, 1.3, -0.6, { r: 1.2, h: 2.2, a: 0xc8302a, b: 0xe8c030 });
   collide(o, 0, 0, 2.2, 1.35, 1.8);
   interact(o, 1.1, 0.9, -0.95, 0.9, 0.6, 0.7, 'A glass of cold kvass · 30 ₸', (game) => {
-    buy(game, { price: 30, what: 'kvass', sound: 'pour', toast: 'Cold, sour-sweet kvass from the barrel. Worth the queue.' });
+    buy(game, { price: 30, what: 'kvass', sound: 'pour', hold: 'kvass', toast: 'Cold, sour-sweet kvass from the barrel. Worth the queue.' });
   });
   return { hx: 2.1, hz: 1.4 };
 }

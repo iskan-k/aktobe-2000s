@@ -38,14 +38,36 @@ export function addLamp(batch, x, z, facing, { y = 0, height = 9.5, double = fal
   }
 }
 
+/**
+ * Every litter bin placed, so the walker can drop an empty into one:
+ * { x, y, z } with y the ground under it.
+ */
+export const BINS = [];
+
+const BIN_POST = 0.3;     // post distance from the bin's axis
+const BIN_PIVOT = 0.62;   // height of the pins the bucket tips on
+
 /** A green municipal litter bin (урна), the tipping kind on two posts. */
 export function addBin(batch, x, z, facing = 0, y = 0) {
-  const [ax, az] = at(x, z, -0.28, 0, facing);
-  const [bx, bz] = at(x, z, 0.28, 0, facing);
-  batch.cyl(0.025, 0.75, PAL.metalDark, ax, y, az, { seg: 5 });
-  batch.cyl(0.025, 0.75, PAL.metalDark, bx, y, bz, { seg: 5 });
-  batch.cyl(0.22, 0.46, PAL.fenceGreen, x, y + 0.24, z, { seg: 9, rTop: 0.25, open: true });
-  batch.cyl(0.2, 0.02, PAL.metalDark, x, y + 0.26, z, { seg: 9 });
+  const [ax, az] = at(x, z, -BIN_POST, 0, facing);
+  const [bx, bz] = at(x, z, BIN_POST, 0, facing);
+  batch.cyl(0.025, 0.78, PAL.metalDark, ax, y, az, { seg: 6 });
+  batch.cyl(0.025, 0.78, PAL.metalDark, bx, y, bz, { seg: 6 });
+  batch.cyl(0.032, 0.03, PAL.metalDark, ax, y + 0.78, az, { seg: 6 });
+  batch.cyl(0.032, 0.03, PAL.metalDark, bx, y + 0.78, bz, { seg: 6 });
+  // the bucket, open at the top, with a rolled rim and a flat bottom
+  batch.cyl(0.21, 0.42, PAL.fenceGreen, x, y + 0.28, z, { seg: 12, rTop: 0.25, open: true });
+  batch.cyl(0.21, 0.02, 0x2f6243, x, y + 0.28, z, { seg: 12 });
+  batch.cyl(0.262, 0.035, 0x2f6243, x, y + 0.685, z, { seg: 12, open: true });
+  // the pins: a short axle from each post into the bucket's side, with a
+  // riveted plate where it meets the bucket
+  for (const s of [-1, 1]) {
+    const [px, pz] = at(x, z, s * (BIN_POST - 0.012), 0, facing);
+    const [qx, qz] = at(x, z, s * 0.25, 0, facing);
+    batch.tube(px, y + BIN_PIVOT, pz, qx, y + BIN_PIVOT, qz, 0.016, PAL.metalDark, { seg: 6, open: false });
+    batch.box(0.02, 0.1, 0.08, 0x2f6243, qx, y + BIN_PIVOT - 0.05, qz, { ry: facing });
+  }
+  BINS.push({ x, y, z });
 }
 
 /**
