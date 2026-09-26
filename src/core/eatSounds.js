@@ -3,8 +3,9 @@ import { env, burst, tone } from './sounds.js';
 
 /* ------------------------------------------------------------------ *
  * Sounds of the walker's own body and what is in their hand: landing
- * from a hop, biting, licking, gulping, cracking seeds, a wrapper and
- * an empty dropped into a steel bin. Synthesised like everything else.
+ * from a hop, biting, chewing, licking, gulping, slurping hot tea,
+ * cracking seeds, a wrapper and an empty dropped into a steel bin.
+ * Synthesised like everything else.
  * ------------------------------------------------------------------ */
 
 /** Feet coming down after a jump: a soft low thump with a scuff. */
@@ -81,4 +82,33 @@ defineVoice('binDrop', (ac, out, { volume = 1, glass = false }) => {
   burst(ac, out, t, { f: 700, q: 1.5, peak: 0.3 * volume, a: 0.002, d: 0.08 });
   const ring = glass ? [1800, 2750] : [520, 1310];
   for (const f of ring) tone(ac, out, t, f, glass ? 0.5 : 0.35, { type: 'triangle', peak: 0.05 * volume, a: 0.003 });
+});
+
+/** Meat or soft dough: a wet squelch, then slow low chewing. */
+defineVoice('chew', (ac, out, { volume = 1, soft = false }) => {
+  const t = ac.currentTime;
+  burst(ac, out, t, { f: soft ? 700 : 520, q: 1.2, type: 'lowpass', peak: 0.2 * volume, a: 0.008, d: 0.08 });
+  burst(ac, out, t + 0.02, { f: 1600, q: 2, peak: 0.06 * volume, a: 0.004, d: 0.05 });
+  for (let i = 0; i < 3; i++) {
+    const at = t + 0.26 + i * 0.24;
+    burst(ac, out, at, { f: 420, q: 0.9, type: 'lowpass', peak: 0.1 * volume, a: 0.03, d: 0.1 });
+    tone(ac, out, at, 150, 0.08, { type: 'sine', peak: 0.03 * volume, a: 0.02 });
+  }
+});
+
+/** Hot tea, sipped with air to cool it: a hiss drawn in, then a swallow. */
+defineVoice('slurp', (ac, out, { volume = 1 }) => {
+  const t = ac.currentTime;
+  burst(ac, out, t + 0.05, { f: 2400, q: 1.5, peak: 0.12 * volume, a: 0.12, d: 0.22 });
+  burst(ac, out, t + 0.1, { f: 5200, q: 2.5, peak: 0.04 * volume, a: 0.1, d: 0.2 });
+  const at = t + 0.5;
+  const o = ac.createOscillator();
+  o.type = 'sine';
+  o.frequency.setValueAtTime(240, at);
+  o.frequency.exponentialRampToValueAtTime(110, at + 0.12);
+  const g = ac.createGain();
+  env(g, at, 0.01, 0.16 * volume, 0.12);
+  o.connect(g).connect(out);
+  o.start(at);
+  o.stop(at + 0.16);
 });

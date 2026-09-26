@@ -2,6 +2,8 @@ import * as THREE from 'three';
 import { cel } from './toon.js';
 import { canvasTex, cached, FONT } from './textures.js';
 import { mulberry32 } from './util.js';
+import { m, glass, mesh, faceted, paperCone, pile } from './itemKit.js';
+import { FOOD_ITEMS } from './itemsFood.js';
 
 /* ------------------------------------------------------------------ *
  * Things you can hold and eat or drink, as small first-person models.
@@ -16,9 +18,6 @@ import { mulberry32 } from './util.js';
  * `mode` picks the hand's motion: 'bite' brings the top to the mouth,
  * 'drink' tips the item up, 'pinch' takes one piece out of a cone.
  * ------------------------------------------------------------------ */
-
-const m = (color, o = {}) => cel({ color, grime: 0, dirt: 0, bands: 3, ...o });
-const glass = (color, opacity = 0.42) => cel({ color, grime: 0, dirt: 0, bands: 'soft', transparent: true, opacity, depthWrite: false });
 
 const C = {
   cream: 0xf7f0de, waffle: 0xd9a257, choc: 0x4a2a1c, stick: 0xdcc49a,
@@ -173,45 +172,6 @@ function turboTex() {
     c.font = `bold 20px ${FONT.narrow}`;
     c.fillText('BUBBLE GUM', w / 2, 112);
   }));
-}
-
-/* ---------------- helpers ---------------- */
-
-function mesh(geo, mat, x = 0, y = 0, z = 0) {
-  const o = new THREE.Mesh(geo, mat);
-  o.position.set(x, y, z);
-  return o;
-}
-
-/** A cylinder with flat facets, like a гранёный стакан. */
-function faceted(rTop, rBot, h, seg, open = false) {
-  const g = new THREE.CylinderGeometry(rTop, rBot, h, seg, 1, open).toNonIndexed();
-  g.computeVertexNormals();
-  return g;
-}
-
-/** A paper cone (kulyok) opening upward, with its fill piled at the top. */
-function paperCone(group, map, color) {
-  const cone = mesh(new THREE.CylinderGeometry(0.048, 0.006, 0.15, 14, 1, true), cel({ map, color, grime: 0, dirt: 0, bands: 3, side: THREE.DoubleSide, cache: false }), 0, 0.06, 0);
-  group.add(cone);
-  // the folded-over lip
-  group.add(mesh(new THREE.TorusGeometry(0.048, 0.003, 4, 14), m(color), 0, 0.135, 0).rotateX(Math.PI / 2));
-  return cone;
-}
-
-/** Scatter `n` copies of a small geometry over a disc at the cone's mouth. */
-function pile(n, r, make, seed = 1) {
-  let s = seed;
-  const rnd = () => ((s = (s * 16807) % 2147483647) / 2147483647);
-  const pieces = [];
-  for (let i = 0; i < n; i++) {
-    const a = rnd() * Math.PI * 2, d = Math.sqrt(rnd()) * r;
-    const p = make(rnd);
-    p.position.set(Math.cos(a) * d, rnd() * 0.012 + (1 - d / r) * 0.012, Math.sin(a) * d);
-    p.rotation.set(rnd() * 3, rnd() * 3, rnd() * 3);
-    pieces.push(p);
-  }
-  return pieces;
 }
 
 /* ---------------- the items ---------------- */
@@ -489,4 +449,6 @@ export const ITEMS = {
   kurt: { name: 'құрт', make: () => coneOf('kurt'), bites: 5, mode: 'pinch', sound: 'crunch', grip: 0.03, lift: 0.08, empty: 'paper cone', done: 'The last kurt ball. Your mouth is the Aral Sea.' },
   strawberries: { name: 'strawberries', make: () => coneOf('strawberries'), bites: 5, mode: 'pinch', sound: 'lick', grip: 0.03, lift: 0.08, empty: 'paper cone', done: 'The last strawberry. The paper is pink with juice.' },
   turbo: { name: 'Turbo', make: turbo, bites: 1, mode: 'bite', sound: 'unwrap', grip: 0.012, lift: 0.05, empty: 'wrapper', done: 'Chewing. The insert is a Lamborghini Countach.' },
+  // street food and drink from the stalls: samsa, shashlik, tea, kumys
+  ...FOOD_ITEMS,
 };
