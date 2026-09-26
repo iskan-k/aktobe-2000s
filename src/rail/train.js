@@ -3,6 +3,7 @@ import './sounds.js';
 import { rngKit } from '../core/util.js';
 import { bakeType, AXLES, BODY } from './rolling.js';
 import { createFleet } from './fleet.js';
+import { SERVICES } from './services.js';
 import { createLamps, LAMP } from './lamps.js';
 import { createCrossing } from './crossing.js';
 import { signalLamps } from './track.js';
@@ -47,14 +48,6 @@ const CLACK_RANGE = 35;
 const PATTERN = [['passenger', 1], ['freight', -1], ['passenger', -1], ['freight', 1]];
 const HORN_DANGER = 180;
 
-/*
- * Service names are plausible for the line in 2007, for flavour; the
- * numbers are not taken from a real timetable.
- */
-const SERVICES = {
-  1: ['№7 Москва – Алматы', '№95 Оренбург – Мангышлак', '№39 Актобе – Кызылорда', '№357 Самара – Алматы'],
-  [-1]: ['№8 Алматы – Москва', '№96 Мангышлак – Оренбург', '№40 Кызылорда – Орск', '№358 Алматы – Самара'],
-};
 
 /* ---------------- composition ---------------- */
 
