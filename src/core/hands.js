@@ -33,7 +33,7 @@ const _v = new THREE.Vector3();
 const VISIBLE_IN = new Set(['sit', 'ride']);
 
 // camera-space poses: at rest in the lower right, and at the mouth
-const REST = { x: 0.2, y: -0.2, z: -0.46, rx: 0.1, ry: -0.35, rz: 0.1 };
+const REST = { x: 0.26, y: -0.24, z: -0.52, rx: 0.1, ry: -0.35, rz: 0.1 };
 const MOUTH = { bite: { x: 0.035, y: -0.13, z: -0.27, rx: 0.55, ry: -0.2, rz: 0.05 },
   pinch: { x: 0.05, y: -0.15, z: -0.3, rx: 0.35, ry: -0.2, rz: 0.1 },
   drink: { x: 0.06, y: -0.13, z: -0.33, rx: 1.15, ry: -0.2, rz: 0.3 } };
