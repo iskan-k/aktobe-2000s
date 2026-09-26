@@ -21,6 +21,14 @@ import { Atlas, atlasQuad, addQuad, ATLAS } from './signs.js';
 
 const BOARDS = new Atlas(2048);
 const FACE_W = 6, FACE_H = 3;
+const STEEL = 0x7d8386, STEEL_DARK = 0x5f6466, CONCRETE = 0xb4b0a6;
+// the mast board: a closed steel head the mast ends inside, on a plinth
+const HEAD_D = 0.7, HEAD_RIM = 0.12;
+const MAST = { r0: 0.28, r1: 0.22, flange: 0.5 };
+const PLINTH = { w: 1.5, h: 0.3 };
+const WALK = { w: 0.6, t: 0.05 };
+// the post board: footing blocks round each post
+const FOOT = { w: 0.5, h: 0.2 };
 
 function ornamentBand(c, x, y, w, h, color) {
   // the koshkar-muiz ram's-horn ornament as a repeating band
@@ -190,43 +198,83 @@ function place(batch, geo, x, y, z, yaw, mat) {
  */
 export function addMastBoard(ctx, x, z, yaw, frontKey, backKey, { y = KERB_H, bottom = 5.3 } = {}) {
   const { batch, colliders } = ctx;
-  const steel = 0x7d8386;
-  batch.cyl(0.26, bottom + FACE_H / 2, steel, x, y, z, { seg: 10, rTop: 0.2 });
-  batch.cyl(0.42, 0.3, 0x6a6f72, x, y, z, { seg: 10 });
   const cy = y + bottom + FACE_H / 2;
-  // the frame box, a little bigger than the faces
-  batch.box(FACE_W + 0.24, FACE_H + 0.24, 0.34, steel, x, cy - FACE_H / 2 - 0.12, z, { ry: yaw });
-  const [fx, fz] = rotXZ(0, -0.18, yaw);
+  const headY = cy - FACE_H / 2 - HEAD_RIM;      // underside of the head
+  const at = (lx, lz) => { const [ox, oz] = rotXZ(lx, lz, yaw); return [x + ox, z + oz]; };
+  // footing: a concrete plinth, the mast's base flange and its ring of bolts
+  batch.box(PLINTH.w, PLINTH.h + 0.12, PLINTH.w, CONCRETE, x, y - 0.12, z, { ry: yaw, closed: true });
+  const flangeY = y + PLINTH.h;
+  batch.cyl(MAST.flange, 0.04, STEEL_DARK, x, flangeY, z, { seg: 12 });
+  for (let i = 0; i < 8; i++) {
+    const a = (i / 8) * Math.PI * 2;
+    batch.cyl(0.025, 0.07, STEEL_DARK, x + Math.cos(a) * (MAST.flange - 0.07), flangeY, z + Math.sin(a) * (MAST.flange - 0.07), { seg: 6, cast: false });
+  }
+  // the mast stops inside the head, between the two faces
+  batch.cyl(MAST.r0, cy - flangeY, STEEL, x, flangeY, z, { seg: 12, rTop: MAST.r1 });
+  // the head: a closed steel box a little bigger than the faces
+  batch.box(FACE_W + HEAD_RIM * 2, FACE_H + HEAD_RIM * 2, HEAD_D, STEEL, x, headY, z, { ry: yaw, closed: true });
+  const face = HEAD_D / 2 + 0.01;
+  const [fx, fz] = rotXZ(0, -face, yaw);
   place(batch, faceGeo(frontKey, 11), x + fx, cy, z + fz, yaw, BOARDS.material);
   place(batch, faceGeo(backKey, 23), x - fx, cy, z - fz, yaw + Math.PI, BOARDS.material);
-  // catwalk and three lamps on arms each side
+  // a ladder up the mast to the catwalk
+  for (const s of [-1, 1]) {
+    const [rx, rz] = at(s * 0.2, MAST.r0 + 0.2);
+    batch.tube(rx, flangeY + 1.8, rz, rx, headY, rz, 0.018, STEEL_DARK, { seg: 4, cast: false });
+  }
+  for (let ly = flangeY + 2; ly < headY; ly += 0.35) {
+    const [ax, az] = at(-0.2, MAST.r0 + 0.2), [bx, bz] = at(0.2, MAST.r0 + 0.2);
+    batch.tube(ax, ly, az, bx, ly, bz, 0.012, STEEL_DARK, { seg: 3, cast: false });
+  }
+  // catwalk grating along the foot of each face on brackets, lamps on arms above
   for (const side of [-1, 1]) {
-    const [cx, cz] = rotXZ(0, side * 0.55, yaw);
-    batch.box(FACE_W, 0.05, 0.5, 0x5f6466, x + cx, cy - FACE_H / 2 - 0.3, z + cz, { ry: yaw });
+    const out = HEAD_D / 2 + WALK.w / 2;
+    const [cx, cz] = at(0, side * out);
+    batch.box(FACE_W + 0.2, WALK.t, WALK.w, STEEL_DARK, cx, headY - WALK.t, cz, { ry: yaw, closed: true });
     for (let i = -1; i <= 1; i++) {
-      const [lx, lz] = rotXZ(i * 2.0, side * 1.0, yaw);
-      const [ax, az] = rotXZ(i * 2.0, side * 0.18, yaw);
-      batch.tube(x + ax, cy + FACE_H / 2 + 0.1, z + az, x + lx, cy + FACE_H / 2 + 0.45, z + lz, 0.025, steel, { seg: 4, cast: false });
-      batch.box(0.3, 0.1, 0.18, 0x3a3e40, x + lx, cy + FACE_H / 2 + 0.38, z + lz, { ry: yaw, cast: false });
+      // a bracket from the lip of the grating back and down to the head
+      const [bx, bz] = at(i * 2.4, side * (HEAD_D / 2 + WALK.w - 0.05));
+      const [hx, hz] = at(i * 2.4, side * HEAD_D / 2);
+      batch.tube(bx, headY - WALK.t, bz, hx, headY - 0.55, hz, 0.025, STEEL, { seg: 4, cast: false });
+      const [lx, lz] = at(i * 2.0, side * (HEAD_D / 2 + 0.85));
+      const [ax, az] = at(i * 2.0, side * HEAD_D / 2);
+      batch.tube(ax, cy + FACE_H / 2 + 0.1, az, lx, cy + FACE_H / 2 + 0.45, lz, 0.025, STEEL, { seg: 4, cast: false });
+      batch.box(0.3, 0.1, 0.18, 0x3a3e40, lx, cy + FACE_H / 2 + 0.38, lz, { ry: yaw, cast: false, closed: true });
+    }
+    // a low guard rail on the outer edge
+    for (const ry of [0.45, 0.9]) {
+      const [ax, az] = at(-FACE_W / 2 - 0.1, side * (HEAD_D / 2 + WALK.w));
+      const [bx, bz] = at(FACE_W / 2 + 0.1, side * (HEAD_D / 2 + WALK.w));
+      batch.tube(ax, headY + ry, az, bx, headY + ry, bz, 0.015, STEEL, { seg: 3, cast: false });
+    }
+    for (let i = -2; i <= 2; i++) {
+      const [px, pz] = at(i * 1.5, side * (HEAD_D / 2 + WALK.w));
+      batch.tube(px, headY - WALK.t, pz, px, headY + 0.9, pz, 0.015, STEEL, { seg: 3, cast: false });
     }
   }
-  colliders.circle(x, z, 0.45, { tag: 'billboard' });
+  colliders.box(x - PLINTH.w / 2, z - PLINTH.w / 2, x + PLINTH.w / 2, z + PLINTH.w / 2, { top: y + PLINTH.h, tag: 'billboard' });
+  colliders.circle(x, z, MAST.r0 + 0.05, { tag: 'billboard' });
 }
 
 /** A 6 x 3 m board on two posts at the back of a pavement, one-sided. */
 export function addPostBoard(ctx, x, z, yaw, key, { y = KERB_H, bottom = 2.5 } = {}) {
   const { batch, colliders } = ctx;
-  const steel = 0x7d8386;
+  // the posts are sunk in concrete wherever they stand: pavement or bare earth
+  const groundAt = (px, pz) => Math.min(y, ctx.ground.heightAt(px, pz));
   for (const s of [-1, 1]) {
     const [px, pz] = rotXZ(s * 1.9, 0.12, yaw);
-    batch.box(0.16, bottom + FACE_H, 0.16, steel, x + px, y, z + pz, { ry: yaw });
-    colliders.circle(x + px, z + pz, 0.16, { tag: 'billboard' });
-    // a strut behind each post
+    const g = groundAt(x + px, z + pz);
+    batch.box(FOOT.w, FOOT.h + 0.1, FOOT.w, CONCRETE, x + px, g - 0.1, z + pz, { ry: yaw, closed: true });
+    batch.box(0.16, y + bottom + FACE_H - g, 0.16, STEEL, x + px, g, z + pz, { ry: yaw });
+    colliders.circle(x + px, z + pz, FOOT.w / 2, { tag: 'billboard' });
+    // a strut behind each post, down to its own little block
     const [bx, bz] = rotXZ(s * 1.9, 1.1, yaw);
-    batch.tube(x + px, y + bottom + 0.6, z + pz, x + bx, y, z + bz, 0.05, steel, { seg: 4 });
+    const gb = groundAt(x + bx, z + bz);
+    batch.box(0.3, 0.2, 0.3, CONCRETE, x + bx, gb - 0.08, z + bz, { ry: yaw, closed: true });
+    batch.tube(x + px, y + bottom + 0.6, z + pz, x + bx, gb + 0.1, z + bz, 0.05, STEEL, { seg: 4 });
   }
   const cy = y + bottom + FACE_H / 2;
-  batch.box(FACE_W + 0.2, FACE_H + 0.2, 0.12, 0x6a6f72, x, cy - FACE_H / 2 - 0.1, z, { ry: yaw });
+  batch.box(FACE_W + 0.2, FACE_H + 0.2, 0.12, 0x6a6f72, x, cy - FACE_H / 2 - 0.1, z, { ry: yaw, closed: true });
   const [fx, fz] = rotXZ(0, -0.07, yaw);
   place(batch, faceGeo(key, 31), x + fx, cy, z + fz, yaw, BOARDS.material);
 }
