@@ -101,7 +101,18 @@ export const KEEP_CLEAR = [
   // the akimat and the Abulkhair Khan monument face the avenue across an
   // open forecourt; nothing stands between them and the traffic
   { id: 'akimat-front', x0: -101, x1: -69, z0: 7.6, z1: 15 },
+  // the Memorial of Glory closes the view down ул. Пушкина
+  { id: 'memorial-gate', x0: -158, x1: -142, z0: 118, z1: 126 },
+  // and the АҚТӨБЕ stele the view down пр. Санкибай батыра
+  { id: 'stele', x0: 103, x1: 117, z0: 118, z1: 126 },
 ];
+
+/**
+ * Land on the south edge taken from the garage cooperatives for the
+ * sights district: the Lenin square and the Memorial of Glory in the
+ * west, summer roadside trade and the town stele in the east.
+ */
+export const SIGHTS = { west: { x0: -230, x1: -96 }, east: { x0: 112, x1: 190 } };
 
 /** Is (x, z) inside a keep-clear zone (grown by margin)? */
 export function inKeepClear(x, z, margin = 0) {

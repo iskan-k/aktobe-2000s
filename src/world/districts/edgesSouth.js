@@ -3,7 +3,7 @@ import { cel } from '../../core/toon.js';
 import { SURF, TILE, hQuad, worldUV } from '../../core/surfaces.js';
 import { signTex } from '../../core/textures.js';
 import { rngKit } from '../../core/util.js';
-import { BLOCKS, BOUNDS, roadById, outerEdge } from '../plan.js';
+import { BLOCKS, BOUNDS, SIGHTS, roadById, outerEdge } from '../plan.js';
 import { KIT, TILES, tbox, mtx, quadGeo } from '../buildings/houseKit.js';
 import { addTree } from '../props/trees.js';
 import { addWires } from '../props/street.js';
@@ -173,7 +173,7 @@ function wasteGround(ctx, x0, x1) {
     batch.add(g, { color: rng.pick([0x7a8a3e, 0x8a9a4a, 0x6a7a36, 0x9a9656]), mat: 'foliage', cast: false });
     if (rng.chance(0.25)) batch.cyl(0.015, rng.range(0.9, 1.5), 0xa89a62, x + 0.1, 0, z, { seg: 3, cast: false });
   }
-  for (const [x, z] of [[-4, 150], [8, 131], [76, 152], [100, 128], [70, 130], [-8, 140]]) {
+  for (const [x, z] of [[-4, 153], [8, 131], [76, 152], [100, 128], [70, 130], [-8, 140]]) {
     addTree(batch, rng.pick(['shrub', 'young', 'elm']), x, z, 3000 + x, { scale: 0.7 });
     colliders.circle(x, z, 0.25, { tag: 'tree' });
   }
@@ -275,8 +275,9 @@ function steppe(batch) {
 
 /** `far` is the backdrop batch (one big cell), for things that reach past the bounds. */
 export function southEdge(ctx, far) {
-  cooperative(ctx, BOUNDS.x0 + 2, MID_W[0] - 4, 1414, '«АВТОМОБИЛИСТ»');
-  cooperative(ctx, 120, BOUNDS.x1 - 2, 1515, '«ЖИГУЛИ»');
+  // each cooperative gives up its outer end to the sights district
+  cooperative(ctx, SIGHTS.west.x1 + 2, MID_W[0] - 4, 1414, '«АВТОМОБИЛИСТ»');
+  cooperative(ctx, SIGHTS.east.x1 + 4, BOUNDS.x1 - 2, 1515, '«ЖИГУЛИ»');
   wasteGround(ctx, MID_W[1], 120);
   // the strip south of the west cooperative, down to the fence
   ctx.batch.add(hQuad(BOUNDS.x0, ROW_B.back, MID_W[0], BOUNDS.z1, -0.03, TILE.grass), { mat: SURF.grass, color: null, cast: false });
