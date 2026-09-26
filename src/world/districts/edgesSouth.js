@@ -258,7 +258,8 @@ function steppe(batch) {
   if (!steppeMat) steppeMat = cel({ map: SURF.grass.map, cache: false, polygonOffset: 3, grime: 0.06, dirt: 0, bands: 3 });
   const R = 860, T = 25;
   const quads = [
-    [-R, TOWN_Z1, MID_W[0], R], [MID_W[1], TOWN_Z1, R, R],
+    // the airport block lays its own ground: the steppe starts past it
+    [-R, BOUNDS.z1, MID_W[0], R], [-R, TOWN_Z1, BOUNDS.x0, BOUNDS.z1], [MID_W[1], TOWN_Z1, R, R],
     [-R, S.z0, BOUNDS.x0, TOWN_Z1], [BOUNDS.x1, S.z0, R, TOWN_Z1],
   ];
   for (const [x0, z0, x1, z1] of quads) {

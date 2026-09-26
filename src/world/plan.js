@@ -88,6 +88,14 @@ export const ROADS = [
     lanes: 1, laneW: 4.0, walk: [4, 4], trees: [1.6, 1.6],
     centre: 'double', major: false, speed: 13,
   },
+  {
+    // the airport road, south of the town fence: it leaves ул. Айтеке би in a
+    // tee and runs west past the terminal forecourt toward Авиагородок
+    id: 'aero', name: 'ул. Бокенбай батыра', nameKz: 'Бөкенбай батыр көшесі',
+    axis: 'x', c: 205, a: -PORTAL_REACH, b: -20,
+    lanes: 1, laneW: 3.75, walk: [4, 5], trees: [1.6, 0],
+    centre: 'dashed', major: false, speed: 13,
+  },
 ];
 
 export const RAIL = {
@@ -257,6 +265,7 @@ export const STOPS = [
   { id: 'school-w', name: 'Школа №9', nameKz: '№9 мектеп', road: 'east', dir: 1, at: -62 },
   { id: 'school-e', name: 'Школа №9', nameKz: '№9 мектеп', road: 'east', dir: -1, at: -48 },
   { id: 'mares', name: 'ул. Маресьева', nameKz: 'Маресьев көшесі', road: 'south', dir: -1, at: 40 },
+  { id: 'aero', name: 'Аэропорт', nameKz: 'Әуежай', road: 'aero', dir: -1, at: -122 },
 ];
 
 export const ROUTES = [
@@ -309,6 +318,16 @@ export const ROUTES = [
     entry: { road: 'south', dir: -1 },
     serves: ['mares', 'mkr-e', 'rynok-s', 'school-e'],
     count: 3,
+  },
+  // the airport bus: along the avenue, down ул. Айтеке би and out past the
+  // terminal toward Авиагородок (the number is flavour)
+  {
+    id: '12', kind: 'bus', label: '12', color: 0x4f86c6,
+    via: 'Акимат – 12 мкр – Аэропорт',
+    legs: [{ road: 'ave', dir: 1 }, { road: 'mid', dir: 1 }, { road: 'aero', dir: -1 }],
+    entry: { road: 'ave', dir: 1 },
+    serves: ['akimat-s', 'mkr-w', 'aero'],
+    count: 2,
   },
 ];
 
