@@ -30,6 +30,29 @@ import { DISTRICTS } from './districts/index.js';
  * ------------------------------------------------------------------ */
 
 const HITBOX_MAT = new THREE.MeshBasicMaterial({ visible: false });
+const SMALL_R = 2.5;        // m: textured meshes smaller than this are signs, posters, labels
+const SMALL_REACH = 140;    // m: beyond this they are unreadable, so they are not drawn
+const SMALL_EVERY = 0.25;   // s between visibility checks
+
+/**
+ * Small textured one-off meshes (shop signs, posters, plaques, price
+ * boards) cost a draw call each but are unreadable from far off. Collect
+ * them once the town is built so they can be skipped beyond SMALL_REACH.
+ */
+function smallDetails(root) {
+  const out = [];
+  root.traverse((o) => {
+    if (!o.isMesh || o.isInstancedMesh || !o.visible || o.material === HITBOX_MAT) return;
+    const mat = Array.isArray(o.material) ? o.material[0] : o.material;
+    if (!mat?.map) return;
+    const g = o.geometry;
+    if (!g.boundingSphere) g.computeBoundingSphere();
+    const sc = o.getWorldScale(new THREE.Vector3());
+    if (g.boundingSphere.radius * Math.max(sc.x, sc.y, sc.z) > SMALL_R) return;
+    out.push({ mesh: o, pos: g.boundingSphere.center.clone().applyMatrix4(o.matrixWorld) });
+  });
+  return out;
+}
 
 export function buildWorld(scene, game) {
   const root = new THREE.Group();
@@ -94,6 +117,21 @@ export function buildWorld(scene, game) {
   }
 
   const meshes = batch.flush(root);
+  root.updateMatrixWorld(true);
+  const details = smallDetails(root);
+  let detailT = 0;
+  const updateDetails = (dt) => {
+    detailT -= dt;
+    if (detailT > 0) return;
+    detailT = SMALL_EVERY;
+    const cam = game.camera.position;
+    const r2 = SMALL_REACH * SMALL_REACH;
+    // through layers, not .visible, so code that shows and hides a sign keeps working
+    for (const d of details) {
+      if (d.pos.distanceToSquared(cam) < r2) d.mesh.layers.enable(0);
+      else d.mesh.layers.disable(0);
+    }
+  };
 
   const world = {
     root, colliders, ground, interactables, updaters, dynamic, ctx,
@@ -104,6 +142,7 @@ export function buildWorld(scene, game) {
     stats: { meshes: meshes.length },
     heightAt: (x, z, fromY) => ground.heightAt(x, z, fromY),
     update(dt) {
+      updateDetails(dt);
       for (const fn of updaters) fn(dt, game);
     },
   };

@@ -229,31 +229,35 @@ function seatList(s, key) {
   return list;
 }
 
+/** One instanced mesh per stand, so a stand out of view is culled whole. */
 function plasticSeats(ctx, stands) {
-  const all = [];
-  for (const [key, s] of stands) {
-    for (const seat of seatList(s, key)) all.push({ s, ...seat });
-  }
-  const mesh = new THREE.InstancedMesh(seatGeometry(), MAT.solid, all.length);
+  const geo = seatGeometry();
   const m = new THREE.Matrix4(), q = new THREE.Quaternion(), p = new THREE.Vector3(), sc = new THREE.Vector3();
   const up = new THREE.Vector3(0, 1, 0), c = new THREE.Color();
-  all.forEach((seat, i) => {
-    const w = standToWorld(seat.s, seat.out, seat.along);
-    p.set(w.x, seat.y, w.z);
-    q.setFromAxisAngle(up, seat.s.yaw);
-    sc.set(seat.wide ? 1.15 : 1, seat.wide ? 1.1 : 1, seat.wide ? 1.2 : 1);
-    m.compose(p, q, sc);
-    mesh.setMatrixAt(i, m);
-    mesh.setColorAt(i, c.set(seat.color));
-  });
-  mesh.instanceMatrix.needsUpdate = true;
-  mesh.instanceColor.needsUpdate = true;
-  mesh.castShadow = false;
-  mesh.receiveShadow = true;
-  mesh.computeBoundingSphere();
-  mesh.name = 'stadium-seats';
-  ctx.root.add(mesh);
-  return all.length;
+  let total = 0;
+  for (const [key, s] of stands) {
+    const list = seatList(s, key);
+    if (!list.length) continue;
+    const mesh = new THREE.InstancedMesh(geo, MAT.solid, list.length);
+    list.forEach((seat, i) => {
+      const w = standToWorld(s, seat.out, seat.along);
+      p.set(w.x, seat.y, w.z);
+      q.setFromAxisAngle(up, s.yaw);
+      sc.set(seat.wide ? 1.15 : 1, seat.wide ? 1.1 : 1, seat.wide ? 1.2 : 1);
+      m.compose(p, q, sc);
+      mesh.setMatrixAt(i, m);
+      mesh.setColorAt(i, c.set(seat.color));
+    });
+    mesh.instanceMatrix.needsUpdate = true;
+    mesh.instanceColor.needsUpdate = true;
+    mesh.castShadow = false;
+    mesh.receiveShadow = true;
+    mesh.computeBoundingSphere();
+    mesh.name = 'stadium-seats';
+    ctx.root.add(mesh);
+    total += list.length;
+  }
+  return total;
 }
 
 /**

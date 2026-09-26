@@ -32,6 +32,7 @@ const LOOKAHEAD = 75;
 const AMBER_CLEAR = 2.5;       // m from the line: still close enough to go on amber
 const AXLE_REACH = 0.34;       // axle distance from the centre, as a share of length
 const TRAFFIC_COUNT = 46;
+const LAMP_REACH = 120;        // m: brake lamps and indicators beyond this are sub-pixel, so not drawn
 const ENGINE_VOICES = 6;
 
 const _p = { x: 0, z: 0, heading: 0 };
@@ -598,7 +599,9 @@ export function createTraffic(game) {
     let steer = 0;
     if (v.path?.kind === 'connector' && v.path.turn !== 'S') steer = v.path.turn === 'L' ? 0.42 : -0.5;
     for (const s of m.steer) s.rotation.y = damp(s.rotation.y, steer, 5, dt);
-    if (m.brake) m.brake.visible = v.acc < -0.7 || v.v < 0.3;
+    const cam = game.camera.position;
+    const lampsSeen = (v.x - cam.x) ** 2 + (v.z - cam.z) ** 2 + cam.y * cam.y < LAMP_REACH * LAMP_REACH;
+    if (m.brake) m.brake.visible = lampsSeen && (v.acc < -0.7 || v.v < 0.3);
     // indicators before and through a turn, and when pulling in
     let dir = 0;
     const turnConn = v.path?.kind === 'connector' ? v.path : (v.path && v.path.len - v.s < 34 ? v.nextConn : null);
@@ -610,8 +613,8 @@ export function createTraffic(game) {
     if (v.state === 'dwell' || targetStop(v) !== null && v.path.kind === 'lane' && (targetStop(v) - v.s) < 30) dir = 1;
     if (m.blink) {
       const on = Math.floor(game.time * 3) % 2 === 0;
-      m.blink.left.visible = dir < 0 && on;
-      m.blink.right.visible = dir > 0 && on;
+      m.blink.left.visible = lampsSeen && dir < 0 && on;
+      m.blink.right.visible = lampsSeen && dir > 0 && on;
     }
     const c = v.collider;
     c.cx = v.x; c.cz = v.z;
